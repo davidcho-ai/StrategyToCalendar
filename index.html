@@ -978,6 +978,11 @@ html, body {
 .hist-card .src { color: var(--ink-2); letter-spacing: 0.16em; text-transform: uppercase; }
 .hist-card .link { color: var(--tracking); text-decoration: none; border-bottom: 1px solid var(--ink-faint); letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; font-family: var(--mono); font-size: 11px; font-weight: 600; }
 
+.hist-card.orphan { border-left: 3px dashed var(--rule-hi); opacity: 0.85; }
+.hist-card.orphan .orphan-badge { color: var(--ink-mute) !important; border-color: var(--ink-mute) !important; font-size: 9.5px !important; }
+.hist-day-head.orphan-head { border-bottom-color: var(--rule-hi); }
+.hist-day-head.orphan-head b { font-weight: 600; }
+
 /* ===== SOURCES PAGE ===== */
 .src-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 .src-card { background: var(--bg-card); border: 1px solid var(--rule); padding: 22px 26px; display: grid; grid-template-columns: 1fr 100px; gap: 18px; align-items: center; position: relative; cursor: pointer; transition: all 0.15s; }
@@ -3017,6 +3022,10 @@ function renderHistory() {
   const uploadCount = HISTORY_LOG.filter(h => h.method === 'upload').length;
   const manualCount = HISTORY_LOG.filter(h => h.method === 'manual').length;
 
+  // Find orphaned forecasts — in FORECASTS but no HISTORY_LOG entry
+  const fcIdsWithHist = new Set(HISTORY_LOG.map(h => h.fcId));
+  const orphaned = FORECASTS.filter(f => !fcIdsWithHist.has(f.id));
+
   // Update chip counts
   document.querySelectorAll('#hist-filters .chip').forEach(chip => {
     const f = chip.dataset.hf;
@@ -3039,7 +3048,41 @@ function renderHistory() {
   const days = Object.keys(byDay).sort().reverse();
   const dowKr = ['일','월','화','수','목','금','토'];
 
-  if (days.length === 0) {
+  // Build orphaned section HTML
+  let orphanedHtml = '';
+  if (orphaned.length > 0 && histFilter === 'all') {
+    const orphanCards = orphaned.map(f => {
+      const src = SOURCES[f.src];
+      if (!src) return '';
+      const tsKey = `orphan_${f.id}`;
+      const isSelected = histSelected.has(tsKey);
+      const isSelectable = histSelectMode;
+      return `
+        <div class="hist-card orphan ${isSelectable ? 'selectable' : ''} ${isSelected ? 'selected' : ''}" data-fc="${f.id}" data-ts="${tsKey}">
+          <div class="h-check"></div>
+          <div class="meta">
+            <span class="time">—</span>
+            <span class="method manual orphan-badge">인입 기록 없음</span>
+            <span class="status ${f.status}">${f.status}</span>
+          </div>
+          <div class="claim">${f.claim_short || f.headline || '—'}</div>
+          <div class="foot">
+            <span class="src">${src.name}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    orphanedHtml = `
+      <div class="hist-day-block">
+        <div class="hist-day-head orphan-head">
+          <h3><b style="color:var(--ink-mute)">인입 기록 없는 Forecast</b></h3>
+          <div class="meta" style="color:var(--ink-mute)">히스토리 삭제 후 고아가 된 ${orphaned.length}건 — 선택 후 일괄 삭제 가능</div>
+        </div>
+        <div class="hist-cards">${orphanCards}</div>
+      </div>`;
+  }
+
+  if (days.length === 0 && orphaned.length === 0) {
     document.getElementById('hist-content').innerHTML = `
       <div style="padding:80px 40px; text-align:center; color:var(--ink-dim);">
         <p style="font-family:var(--sans); font-size:16px; line-height:1.6;">
@@ -3094,7 +3137,7 @@ function renderHistory() {
       </div>`;
   }).join('');
 
-  document.getElementById('hist-content').innerHTML = html;
+  document.getElementById('hist-content').innerHTML = orphanedHtml + html;
 
   // Attach click handlers
   document.querySelectorAll('#hist-content .hist-card').forEach(card => {
@@ -3194,6 +3237,14 @@ function setupHistoryActions() {
     // 1. Collect selected history entries and their associated forecast IDs
     const selectedEntries = HISTORY_LOG.filter(h => histSelected.has(histTsKey(h)));
     const fcIdsToDelete = new Set(selectedEntries.map(h => h.fcId).filter(Boolean));
+
+    // Also collect orphaned forecasts selected (tsKey = 'orphan_FC-XXX')
+    histSelected.forEach(tsKey => {
+      if (tsKey.startsWith('orphan_')) {
+        const fcId = tsKey.replace('orphan_', '');
+        fcIdsToDelete.add(fcId);
+      }
+    });
     const fcCount = fcIdsToDelete.size;
 
     // 2. Compute cascade impact for the confirmation dialog
