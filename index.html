@@ -1,0 +1,3671 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440">
+<title>StrategyToCalendar · 20260508</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* RenTec palette — monochrome + deep burgundy accent */
+  --bg: #ffffff; --bg-card: #ffffff; --bg-cream: #f5f5f5; --bg-tint: #f7f7f8;
+  --bg-warm: #f5f5f5; --bg-sidebar: #0d0d0e;
+  --rule: #e6e6e7; --rule-soft: #ededee; --rule-hi: #cfcfd1;
+  --ink: #111113; --ink-2: #1c1c1e; --ink-soft: #3a3a3c; --ink-dim: #6e6e72;
+  --ink-mute: #8e8e93; --ink-faint: #b8b8bc;
+  --sb-ink: #f0f0f0; --sb-ink-2: #b8b8bc; --sb-ink-dim: #6e6e72; --sb-rule: #1f1f22;
+  /* "brass" var names retained for compatibility — values swapped to oxblood */
+  --brass: #6b1a1a; --brass-2: #8a2727; --brass-deep: #4d1010;
+  --brass-bg: #f5ebeb; --brass-bg-2: #ebd8d8;
+  /* status — muted/desaturated */
+  --pending: #8a6a2a; --tracking: #2c3e54; --inline: #2f5235; --off: #6b1a1a;
+  /* fonts — sans only */
+  --serif: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+  --sans: 'Pretendard Variable', Pretendard, 'Inter', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+}
+
+/* RenTec restyling — neutralize italic and serif accents globally */
+.app * {
+  font-style: normal !important;
+}
+[class*="ac-claim"],
+[class*="cn-claim"],
+[class*="dos"] .body,
+.fc-claim, .ac-claim, .cn-claim,
+.dos-section .body,
+.scen .body .nm,
+.crit .text,
+.hist-card .claim,
+.notif .msg,
+.pos-table-full td.linked,
+.po-grid .val.claim,
+.upload-pane .drop,
+.dossier-empty p {
+  font-family: var(--sans) !important;
+  font-style: normal !important;
+}
+em {
+  font-style: normal;
+}
+
+/* Headings — bold sans instead of serif italic */
+.tb-title h1,
+.section-head h2,
+.aside-card h3,
+.chain-head h3,
+.mc-month,
+.scen-summary .item .v,
+.stat-card .big,
+.verif-stat .v,
+.src-card .composite .v,
+.src-card .nm h3,
+.scen .prob,
+.dos-head h2,
+.po-head h4,
+.verif-item .body .head h4,
+.set-card h3,
+.em-head h3,
+.hist-day-head h3,
+.sb-brand .logo {
+  font-family: var(--sans) !important;
+  font-style: normal !important;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+}
+
+/* em accents — make them muted gray instead of brass-italic */
+.tb-title h1 em,
+.section-head h2 em,
+.aside-card h3 em,
+.chain-head h3 em,
+.mc-month b,
+.scen-summary .item .v small,
+.stat-card .big small,
+.verif-stat .v small,
+.src-card .composite .v small,
+.src-card .nm em,
+.scen .prob small,
+.dos-head h2 em,
+.po-head h4 b,
+.set-card h3 em,
+.em-head h3 em,
+.hist-day-head h3 b,
+.hist-day-head h3 span,
+.sb-brand .logo em {
+  font-family: var(--sans) !important;
+  font-style: normal !important;
+  font-weight: 500 !important;
+  color: var(--ink-dim) !important;
+  letter-spacing: 0 !important;
+}
+
+/* Big stat numbers — keep large, but use Inter 800 instead of serif italic */
+.stat-card .big,
+.verif-stat .v,
+.scen-summary .item .v,
+.src-card .composite .v,
+.scen .prob {
+  font-weight: 800 !important;
+  letter-spacing: -0.04em !important;
+}
+
+/* Logo — clean wordmark */
+.sb-brand .logo {
+  font-size: 18px !important;
+  letter-spacing: -0.01em !important;
+  font-weight: 700 !important;
+}
+.sb-brand .logo .mk { font-weight: 800; }
+.sb-brand .logo em { display: none; }
+
+/* Suppress decorative glyphs */
+.ib-glyph::before { display: none !important; }
+.ib-glyph { padding-left: 0; color: var(--ink-soft) !important; }
+.dossier-empty .glyph { display: none !important; }
+
+/* Monochrome chips — RenTec style */
+.ev-chip, .ac-tag, .cn-tag {
+  border-color: var(--rule-hi) !important;
+  color: var(--ink-soft) !important;
+  background: transparent !important;
+}
+
+/* Mute event border-top stripes on cards (was bright color) */
+.action-card.act      { color: var(--brass) !important; }
+.action-card.prep     { color: var(--ink-2) !important; }
+.action-card.watch    { color: var(--ink-soft) !important; }
+.action-card.verified { color: var(--inline) !important; }
+
+.chain-node.s-pending  { color: var(--ink-soft) !important; }
+.chain-node.s-tracking { color: var(--ink-2) !important; }
+.chain-node.s-inline   { color: var(--inline) !important; }
+.chain-node.s-off      { color: var(--off) !important; }
+
+.mc-node-full.s-pending  { color: var(--ink-soft) !important; }
+.mc-node-full.s-tracking { color: var(--ink-2) !important; }
+.mc-node-full.s-inline   { color: var(--inline) !important; }
+.mc-node-full.s-off      { color: var(--off) !important; }
+
+/* Mini calendar events — flatten saturation */
+.mc-event { background: var(--bg-tint) !important; color: var(--ink) !important; border-left-color: var(--ink-mute) !important; }
+.mc-event.act { background: var(--brass-bg) !important; color: var(--brass-deep) !important; border-left-color: var(--brass) !important; }
+.mc-event.verified { background: var(--bg-tint) !important; color: var(--inline) !important; border-left-color: var(--inline) !important; }
+
+/* Calendar lane spans */
+.fc-span.s-pending  { color: var(--ink-soft) !important; }
+.fc-span.s-tracking { color: var(--ink-2) !important; }
+.fc-span.s-inline   { color: var(--inline) !important; }
+.fc-span.s-off      { color: var(--off) !important; }
+
+/* Sidebar logo — clean wordmark */
+.sb-brand .logo .mk { color: var(--sb-ink) !important; font-weight: 700 !important; }
+.sb-brand .logo-rule { display: none !important; }
+.sb-brand .logo-sub { letter-spacing: 0.2em; color: var(--sb-ink-dim) !important; }
+
+/* Big number stats — burgundy accent for emphasis */
+.stat-card .big.green { color: var(--inline) !important; }
+.stat-card .big.red   { color: var(--off) !important; }
+.stat-card .big.amber { color: var(--brass-deep) !important; }
+.stat-card .big       { color: var(--ink) !important; }
+
+/* Section dividers — keep crisp single line */
+.section-head { border-bottom: 1px solid var(--rule) !important; }
+
+/* Topbar — clean academic style */
+.tb-title h1 { font-size: 26px !important; font-weight: 700 !important; letter-spacing: -0.02em !important; }
+.tb-title h1 em { color: var(--ink-mute) !important; font-weight: 500 !important; }
+.tb-title .sub { color: var(--ink-mute) !important; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--sans); font-size: 15.5px; font-weight: 500;
+  line-height: 1.55;
+  font-feature-settings: 'tnum' 1, 'lnum' 1, 'ss01' 1;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+  height: 100vh; overflow: hidden;
+}
+::selection { background: var(--brass); color: white; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule-hi); }
+::-webkit-scrollbar-thumb:hover { background: var(--brass); }
+
+.app { display: grid; grid-template-columns: 244px 1fr; height: 100vh; }
+
+/* ===== SIDEBAR ===== */
+.sidebar { background: var(--bg-sidebar); color: var(--sb-ink); display: flex; flex-direction: column; }
+.sb-brand { padding: 28px 26px 24px; border-bottom: 1px solid var(--sb-rule); cursor: pointer; }
+.sb-brand .logo { font-family: var(--serif); font-style: italic; font-size: 24px; font-weight: 500; letter-spacing: -0.018em; color: var(--sb-ink); line-height: 1; }
+.sb-brand .logo .mk { color: var(--brass-2); font-weight: 700; }
+.sb-brand .logo-rule { width: 26px; height: 1.5px; background: var(--brass-2); margin: 13px 0 9px; }
+.sb-brand .logo-sub { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sb-ink-dim); }
+.sb-section { padding: 22px 26px 8px; font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase; color: var(--sb-ink-dim); }
+.sb-nav { display: flex; flex-direction: column; }
+.sb-nav a { display: flex; align-items: center; gap: 14px; padding: 12px 26px; color: var(--sb-ink-2); text-decoration: none; font-size: 15px; font-weight: 500; letter-spacing: -0.005em; position: relative; transition: all 0.15s; cursor: pointer; }
+.sb-nav a .ic { width: 18px; text-align: center; font-family: var(--mono); font-size: 14px; font-weight: 500; flex-shrink: 0; color: var(--sb-ink-dim); }
+.sb-nav a:hover { color: var(--sb-ink); background: rgba(255,255,255,0.04); }
+.sb-nav a.active { color: var(--sb-ink); background: rgba(168,119,65,0.16); font-weight: 600; }
+.sb-nav a.active::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--brass-2); }
+.sb-nav a.active .ic { color: var(--brass-2); }
+.sb-nav a .badge { margin-left: auto; font-family: var(--mono); font-size: 11px; font-weight: 600; background: rgba(168,119,65,0.18); color: var(--brass-2); padding: 2px 8px; letter-spacing: 0.04em; }
+.sb-nav a .badge.warn { background: rgba(150,61,48,0.22); color: #d68070; }
+.sb-foot { margin-top: auto; padding: 18px 26px 22px; border-top: 1px solid var(--sb-rule); }
+.sb-account { display: flex; align-items: center; gap: 13px; }
+.sb-account .av { width: 38px; height: 38px; background: var(--brass-2); color: var(--bg-sidebar); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 13px; letter-spacing: 0.04em; flex-shrink: 0; }
+.sb-account .nm { font-size: 15px; font-weight: 600; color: var(--sb-ink); }
+.sb-account .role { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sb-ink-dim); margin-top: 3px; }
+
+/* ===== MAIN ===== */
+.main { display: grid; grid-template-rows: 80px auto 1fr; overflow: hidden; min-height: 0; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 44px; background: var(--bg-card); border-bottom: 1px solid var(--rule); }
+.tb-title h1 { font-family: var(--serif); font-weight: 500; font-size: 32px; letter-spacing: -0.022em; color: var(--ink); line-height: 1.1; }
+.tb-title h1 em { font-style: italic; color: var(--brass); font-weight: 400; }
+.tb-title .sub { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); margin-top: 7px; }
+.tb-right { display: flex; align-items: center; gap: 32px; }
+.tb-kpi { text-align: right; }
+.tb-kpi .l { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); display: block; margin-bottom: 4px; }
+.tb-kpi .v { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: -0.005em; }
+.tb-kpi .v.up { color: var(--inline); }
+.tb-kpi .v.down { color: var(--off); }
+.tb-bell { position: relative; width: 42px; height: 42px; border: 1px solid var(--rule); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink-soft); background: var(--bg-card); font-family: var(--serif); font-style: italic; font-size: 20px; font-weight: 400; transition: all 0.15s; }
+.tb-bell:hover { color: var(--brass); border-color: var(--brass); }
+.tb-bell .dot { position: absolute; top: -6px; right: -6px; background: var(--brass); color: white; font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 7px; letter-spacing: 0; }
+
+/* ===== INTAKE ===== */
+.intake { background: var(--bg-card); padding: 22px 44px 24px; border-bottom: 1px solid var(--rule); position: relative; display: none; }
+.intake.show { display: block; }
+.ib-row { display: flex; align-items: center; gap: 18px; max-width: 1280px; margin: 0 auto; }
+.ib-glyph { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--brass-deep); white-space: nowrap; }
+.ib-glyph::before { content: '∮'; font-family: var(--serif); font-style: italic; font-size: 26px; color: var(--brass); text-transform: none; letter-spacing: 0; font-weight: 400; line-height: 1; }
+.ib-tabs { display: flex; gap: 6px; }
+.ib-tab { padding: 10px 18px; cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); border: 1px solid transparent; transition: all 0.15s; }
+.ib-tab:hover { color: var(--ink); }
+.ib-tab.on { color: var(--brass-deep); background: var(--brass-bg); border-color: rgba(168,119,65,0.35); }
+.ib-pane { flex: 1; display: none; align-items: center; gap: 14px; min-width: 0; }
+.ib-pane.on { display: flex; }
+.ib-pane input.field { flex: 1; background: var(--bg); border: 1.5px solid var(--rule); outline: none; font-family: var(--sans); font-size: 16px; font-weight: 500; letter-spacing: -0.005em; color: var(--ink); padding: 12px 18px; min-width: 0; transition: border-color 0.15s; }
+.ib-pane input.field:focus { border-color: var(--brass); background: var(--bg-card); }
+.ib-pane input.field::placeholder { color: var(--ink-mute); font-family: var(--serif); font-style: italic; font-weight: 400; }
+.ib-btn { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; background: var(--ink); color: white; padding: 12px 26px; cursor: pointer; border: none; white-space: nowrap; transition: background 0.15s; }
+.ib-btn:hover { background: var(--brass); }
+.upload-pane .drop { flex: 1; border: 1.5px dashed var(--rule-hi); padding: 12px 18px; text-align: center; font-family: var(--serif); font-style: italic; font-size: 15px; color: var(--ink-dim); cursor: pointer; transition: all 0.15s; }
+.upload-pane .drop:hover { border-color: var(--brass); color: var(--brass-deep); background: var(--brass-bg); }
+.upload-pane .drop b { font-style: normal; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--brass-deep); margin-right: 12px; }
+.upload-pane .drop.dragging { border-color: var(--brass); background: var(--brass-bg); color: var(--brass-deep); }
+.upload-preview { flex: 1; display: flex; align-items: center; gap: 14px; padding: 8px 14px; border: 1.5px solid var(--brass); background: var(--brass-bg); min-width: 0; }
+.upload-preview img { width: 44px; height: 44px; object-fit: cover; border: 1px solid var(--rule-hi); flex-shrink: 0; background: var(--bg-card); }
+.upload-preview img[src=""] { display: none; }
+.upload-preview .up-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.upload-preview .up-name { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upload-preview .up-meta { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass-deep); }
+.upload-preview .up-clear { background: transparent; border: none; color: var(--brass-deep); font-size: 22px; font-weight: 400; line-height: 1; cursor: pointer; padding: 0 6px; transition: color 0.12s; }
+.upload-preview .up-clear:hover { color: var(--off); }
+.manual-pane { gap: 10px; }
+.manual-pane .mfield { display: flex; flex-direction: column; }
+.manual-pane .mfield label { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 5px; }
+.manual-pane .mfield input { background: var(--bg); border: 1.5px solid var(--rule); outline: none; font-family: var(--sans); font-size: 14.5px; font-weight: 500; color: var(--ink); padding: 10px 14px; }
+.ib-summary { display: flex; gap: 26px; padding-left: 22px; border-left: 1px solid var(--rule); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); white-space: nowrap; }
+.ib-summary b { color: var(--brass-deep); margin-left: 8px; font-size: 17px; font-weight: 700; letter-spacing: -0.005em; }
+
+.preview-overlay { position: absolute; top: calc(100% - 1px); left: 44px; right: 44px; background: var(--bg-card); border: 1px solid var(--rule); border-top: 4px solid var(--brass); padding: 26px 36px 24px; z-index: 100; box-shadow: 0 18px 44px rgba(20,30,50,0.1); display: none; flex-direction: column; gap: 20px; max-width: 1280px; margin: 0 auto; }
+.preview-overlay.open { display: flex; }
+.po-head { display: flex; justify-content: space-between; align-items: baseline; }
+.po-head h4 { font-family: var(--serif); font-style: italic; font-size: 22px; font-weight: 500; color: var(--brass-deep); }
+.po-head h4 b { font-style: normal; font-family: var(--sans); font-weight: 500; color: var(--ink-dim); font-size: 15px; margin-left: 12px; }
+.po-conf { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+.po-conf b { color: var(--inline); margin-left: 8px; letter-spacing: -0.005em; font-size: 17px; font-weight: 700; }
+.po-grid { display: grid; grid-template-columns: 110px 1fr 110px 1fr; gap: 13px 24px; align-items: baseline; }
+.po-grid .lbl { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+.po-grid .val { color: var(--ink); font-size: 15.5px; font-weight: 500; }
+.po-grid .val.claim { font-family: var(--serif); font-style: italic; font-size: 18px; font-weight: 500; line-height: 1.5; color: var(--ink); grid-column: 2 / 5; }
+.po-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 18px; border-top: 1px solid var(--rule); }
+.btn { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; padding: 11px 24px; cursor: pointer; border: none; transition: all 0.15s; }
+.btn.primary { background: var(--brass); color: white; }
+.btn.primary:hover { background: var(--brass-deep); }
+.btn.secondary { background: transparent; color: var(--ink-soft); border: 1.5px solid var(--rule-hi); }
+.btn.secondary:hover { color: var(--ink); border-color: var(--ink); }
+.btn.danger { background: transparent; color: var(--off); border: 1.5px solid var(--off); }
+.btn.danger:hover { background: var(--off); color: white; }
+
+.dos-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ===== EDIT MODAL ===== */
+.edit-modal { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; }
+.em-backdrop { position: absolute; inset: 0; background: rgba(10, 20, 31, 0.55); backdrop-filter: blur(4px); }
+.em-card { position: relative; background: var(--bg-card); border: 1px solid var(--rule); border-top: 4px solid var(--brass); width: 720px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(20,30,50,0.25); }
+.em-head { display: flex; justify-content: space-between; align-items: baseline; padding: 22px 30px 18px; border-bottom: 1px solid var(--rule); }
+.em-head h3 { font-family: var(--serif); font-weight: 500; font-size: 22px; letter-spacing: -0.014em; color: var(--ink); }
+.em-head h3 em { font-style: italic; color: var(--brass); font-size: 15px; margin-left: 8px; font-weight: 400; }
+.em-close { background: transparent; border: none; font-size: 28px; color: var(--ink-dim); cursor: pointer; line-height: 1; padding: 0; transition: color 0.12s; }
+.em-close:hover { color: var(--off); }
+.em-body { padding: 24px 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.em-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.em-field { display: flex; flex-direction: column; gap: 6px; }
+.em-field label { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+.em-field input, .em-field textarea, .em-field select {
+  font-family: var(--sans); font-size: 14.5px; font-weight: 500;
+  color: var(--ink); padding: 10px 14px;
+  background: var(--bg); border: 1.5px solid var(--rule); outline: none;
+  letter-spacing: -0.005em;
+  transition: border-color 0.12s;
+}
+.em-field input:focus, .em-field textarea:focus, .em-field select:focus { border-color: var(--brass); background: var(--bg-card); }
+.em-field textarea { resize: vertical; font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.5; }
+.em-foot { display: flex; justify-content: flex-end; gap: 12px; padding: 18px 30px; border-top: 1px solid var(--rule); background: var(--bg-tint); }
+
+/* ===== PAGE ===== */
+.page-body { overflow-y: auto; min-height: 0; }
+.page { max-width: 1320px; margin: 0 auto; padding: 40px 44px 60px; display: none; }
+.page.active { display: block; }
+.section { margin-bottom: 56px; }
+.section:last-child { margin-bottom: 0; }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1.5px solid var(--rule); }
+.section-head h2 { font-family: var(--serif); font-weight: 500; font-size: 24px; letter-spacing: -0.014em; color: var(--ink); }
+.section-head h2 em { font-style: italic; color: var(--brass); font-weight: 400; font-size: 17px; margin-left: 10px; }
+.section-head .more { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); text-decoration: none; cursor: pointer; transition: color 0.15s; }
+.section-head .more:hover { color: var(--brass); }
+.section-head .more::after { content: ' →'; color: var(--brass); }
+
+/* ===== ACTION CARDS ===== */
+.action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.action-card { background: var(--bg-card); border: 1px solid var(--rule); border-top: 4px solid currentColor; padding: 24px 26px 22px; display: flex; flex-direction: column; gap: 14px; cursor: pointer; transition: all 0.18s; min-height: 220px; }
+.action-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(20,30,50,0.07); }
+.action-card.act { color: var(--brass); }
+.action-card.prep { color: var(--brass-deep); }
+.action-card.watch { color: var(--tracking); }
+.action-card.verified { color: var(--inline); }
+.ac-head { display: flex; justify-content: space-between; align-items: baseline; }
+.ac-state { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: currentColor; }
+.ac-days { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--ink-dim); letter-spacing: 0.04em; }
+.ac-claim { font-family: var(--serif); font-weight: 500; font-size: 19px; line-height: 1.42; color: var(--ink); letter-spacing: -0.008em; flex: 1; }
+.ac-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--rule-soft); gap: 10px; }
+.ac-src { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); display: flex; flex-direction: column; gap: 3px; }
+.ac-src .org { color: var(--ink-mute); font-weight: 600; letter-spacing: 0.06em; font-size: 10px; }
+.ac-tag { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 9px; border: 1px solid hsla(var(--ev-h), 35%, 50%, 0.45); color: hsl(var(--ev-h), 50%, 26%); background: hsla(var(--ev-h), 50%, 50%, 0.07); white-space: nowrap; }
+
+.action-empty {
+  grid-column: 1 / -1;
+  padding: 64px 40px;
+  text-align: center;
+  background: var(--bg-tint);
+  border: 1px dashed var(--rule-hi);
+}
+.action-empty .ae-title {
+  font-family: var(--sans); font-size: 17px; font-weight: 700;
+  color: var(--ink); margin-bottom: 8px; letter-spacing: -0.01em;
+}
+.action-empty .ae-desc {
+  font-family: var(--sans); font-size: 14px; font-weight: 500;
+  color: var(--ink-dim); line-height: 1.55;
+}
+
+/* ===== TWO-COL ===== */
+.two-col { display: grid; grid-template-columns: 1fr 380px; gap: 30px; align-items: start; }
+.mini-cal { background: var(--bg-card); border: 1px solid var(--rule); padding: 26px 30px 30px; }
+.mc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.mc-month { font-family: var(--serif); font-style: italic; font-size: 26px; font-weight: 500; letter-spacing: -0.016em; color: var(--ink); }
+.mc-month b { font-style: normal; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-left: 12px; }
+.mc-nav { display: flex; gap: 7px; align-items: center; }
+.mc-nav button { width: 34px; height: 34px; background: var(--bg); border: 1px solid var(--rule); cursor: pointer; color: var(--ink-soft); font-family: var(--mono); font-size: 14px; font-weight: 600; transition: all 0.15s; }
+.mc-nav button:hover { color: var(--brass); border-color: var(--brass); }
+.mc-nav .today-btn { width: auto; padding: 0 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
+.mc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.mc-wd { background: var(--bg-tint); text-align: center; padding: 10px 0; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+.mc-wd.weekend { color: var(--brass-deep); }
+.mc-day { background: var(--bg-card); min-height: 96px; padding: 8px 10px 10px; position: relative; cursor: pointer; transition: background 0.12s; display: flex; flex-direction: column; gap: 4px; }
+.mc-day:hover { background: var(--bg-tint); }
+.mc-day .num { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--ink-2); letter-spacing: 0.02em; }
+.mc-day.faded .num { color: var(--ink-faint); font-weight: 500; }
+.mc-day.weekend .num { color: var(--brass-deep); }
+.mc-day.today { background: var(--brass-bg); }
+.mc-day.today .num { color: var(--brass); font-weight: 700; font-size: 15px; }
+.mc-day.today::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--brass); }
+.mc-event { font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: -0.005em; padding: 3px 7px; border-left: 2.5px solid currentColor; background: hsla(var(--h, 215), 30%, 50%, 0.08); color: hsl(var(--h, 215), 45%, 26%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.mc-event.act { background: var(--brass-bg); color: var(--brass-deep); border-left-color: var(--brass); font-weight: 700; }
+.mc-event.prep { --h: 32; }
+.mc-event.watch { --h: 215; }
+.mc-event.verified { --h: 100; background: rgba(74,122,62,0.12); color: var(--inline); border-left-color: var(--inline); }
+
+.aside-stack { display: flex; flex-direction: column; gap: 22px; }
+.aside-card { background: var(--bg-card); border: 1px solid var(--rule); padding: 24px 26px; }
+.aside-card h3 { font-family: var(--serif); font-weight: 500; font-size: 19px; letter-spacing: -0.012em; color: var(--ink); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: baseline; }
+.aside-card h3 em { font-style: italic; color: var(--brass); font-weight: 400; font-size: 13.5px; }
+.kpi-row { display: flex; flex-direction: column; gap: 14px; }
+.kpi-line { display: flex; justify-content: space-between; align-items: baseline; }
+.kpi-line .l { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+.kpi-line .v { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--ink); }
+.kpi-line .v.up { color: var(--inline); }
+.kpi-line .v.down { color: var(--off); }
+.verif-vis { margin-top: 10px; display: flex; height: 10px; background: var(--rule-soft); }
+.verif-vis i { display: block; }
+.verif-vis i.in { background: var(--inline); }
+.verif-vis i.mix { background: var(--pending); }
+.verif-vis i.off { background: var(--off); }
+.verif-vis-labels { display: flex; justify-content: space-between; margin-top: 8px; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
+.hist-mini { display: flex; flex-direction: column; }
+.hist-mini .item { padding: 14px 0; border-bottom: 1px solid var(--rule-soft); cursor: pointer; display: flex; flex-direction: column; gap: 7px; }
+.hist-mini .item:last-child { border-bottom: none; }
+.hist-mini .item:hover .claim { color: var(--brass-deep); }
+.hist-mini .meta { display: flex; align-items: center; gap: 11px; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-mute); text-transform: uppercase; }
+.hist-mini .time { color: var(--ink-soft); letter-spacing: 0.04em; font-weight: 700; }
+.hist-mini .method { letter-spacing: 0.2em; padding: 2px 6px; border: 1px solid currentColor; font-weight: 700; }
+.hist-mini .method.url { color: var(--tracking); }
+.hist-mini .method.upload { color: var(--brass-deep); }
+.hist-mini .method.manual { color: var(--ink-soft); }
+.hist-mini .claim { font-family: var(--sans); font-size: 14.5px; font-weight: 600; line-height: 1.45; color: var(--ink); letter-spacing: -0.005em; transition: color 0.15s; }
+.hist-mini .src { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
+.aside-card .more { display: block; text-align: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--rule-soft); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--brass-deep); text-decoration: none; cursor: pointer; transition: color 0.15s; }
+.aside-card .more:hover { color: var(--brass); }
+
+/* ===== CHAIN ===== */
+.chain-strip { background: var(--bg-card); border: 1px solid var(--rule); padding: 26px 30px 28px; }
+.chain-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 22px; }
+.chain-head h3 { font-family: var(--serif); font-weight: 500; font-size: 21px; letter-spacing: -0.012em; color: var(--ink); }
+.chain-head h3 em { font-style: italic; color: var(--brass); font-weight: 400; font-size: 14.5px; margin-left: 10px; }
+.chain-meta { display: flex; gap: 24px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); }
+.chain-meta b { color: var(--brass-deep); margin-left: 7px; font-weight: 700; font-size: 14px; letter-spacing: -0.005em; }
+.chain-meta .green b { color: var(--inline); }
+.chain-flow { display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr 28px 1fr 28px 1fr; align-items: stretch; }
+.chain-node { background: var(--bg-warm); border: 1px solid var(--rule); border-top: 3px solid currentColor; padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: all 0.15s; min-width: 0; }
+.chain-node:hover { transform: translateY(-2px); background: var(--bg-card); box-shadow: 0 6px 16px rgba(20,30,50,0.06); }
+.chain-node.s-pending { color: var(--pending); }
+.chain-node.s-tracking { color: var(--tracking); }
+.chain-node.s-inline { color: var(--inline); }
+.chain-node.s-off { color: var(--off); }
+.cn-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.cn-src { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+.cn-tag { font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; padding: 1.5px 5px; border: 1px solid hsla(var(--ev-h, 32), 35%, 50%, 0.45); color: hsl(var(--ev-h, 32), 50%, 26%); background: hsla(var(--ev-h, 32), 50%, 50%, 0.07); }
+.cn-claim { font-family: var(--serif); font-style: italic; font-size: 13.5px; font-weight: 500; line-height: 1.4; color: var(--ink); letter-spacing: -0.005em; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cn-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed var(--rule); font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.cn-stat { color: currentColor; letter-spacing: 0.16em; }
+.cn-days { color: var(--brass-deep); font-weight: 700; }
+.cn-days.imminent { background: var(--brass-bg); padding: 1.5px 5px; letter-spacing: 0.1em; }
+.cn-days.verified { color: var(--inline); }
+.chain-arrow { position: relative; display: flex; align-items: center; justify-content: center; }
+.chain-arrow::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1.5px; background: linear-gradient(to right, transparent 0%, rgba(168,119,65,0.3) 12%, var(--brass) 50%, rgba(168,119,65,0.3) 88%, transparent 100%); }
+.chain-arrow::after { content: ''; position: absolute; right: 5px; top: 50%; width: 7px; height: 7px; border-top: 2px solid var(--brass); border-right: 2px solid var(--brass); transform: translateY(-50%) rotate(45deg); }
+
+/* ===== STAT CARDS ===== */
+.status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+.stat-card { background: var(--bg-card); border: 1px solid var(--rule); padding: 30px 30px 28px; display: flex; flex-direction: column; gap: 12px; transition: all 0.18s; cursor: pointer; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(20,30,50,0.06); }
+.stat-card .l { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); }
+.stat-card .big { font-family: var(--serif); font-size: 72px; font-weight: 400; font-style: italic; letter-spacing: -0.026em; line-height: 1; color: var(--brass-deep); }
+.stat-card .big.green { color: var(--inline); }
+.stat-card .big.red { color: var(--off); }
+.stat-card .big.amber { color: var(--pending); }
+.stat-card .big small { font-family: var(--mono); font-size: 20px; color: var(--ink-dim); font-style: normal; font-weight: 600; letter-spacing: 0.06em; margin-left: 7px; }
+.stat-card .sub { font-family: var(--sans); font-size: 14.5px; font-weight: 500; color: var(--ink-soft); line-height: 1.6; }
+.stat-card .sub b { font-weight: 700; color: var(--ink); }
+
+/* ===== TOAST ===== */
+.flash-toast { position: fixed; bottom: 28px; right: 28px; background: var(--ink); color: white; padding: 16px 26px; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; z-index: 9999; box-shadow: 0 10px 28px rgba(20,30,50,0.2); }
+
+/* ===== INBOX PAGE ===== */
+.toolbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: var(--bg-card); border: 1px solid var(--rule); margin-bottom: 22px; }
+.chips { display: flex; gap: 8px; }
+.chip { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; padding: 6px 14px; cursor: pointer; color: var(--ink-dim); border: 1px solid transparent; transition: all 0.12s; }
+.chip:hover { color: var(--ink); }
+.chip.on { color: var(--brass-deep); background: var(--brass-bg); border-color: rgba(168,119,65,0.35); }
+.toolbar .right { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); }
+.toolbar .right b { color: var(--brass-deep); margin-left: 8px; font-size: 14px; font-weight: 700; letter-spacing: -0.005em; }
+
+.inbox-layout { display: grid; grid-template-columns: 1fr 460px; gap: 28px; align-items: start; }
+.inbox-list { display: flex; flex-direction: column; gap: 12px; }
+.fc-card { background: var(--bg-card); border: 1px solid var(--rule); padding: 20px 22px; cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 12px; transition: all 0.15s; }
+.fc-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; transition: background 0.15s; }
+.fc-card:hover { border-color: var(--rule-hi); }
+.fc-card.active::before { background: var(--brass); }
+.fc-card.active { background: var(--brass-bg); }
+.fc-r1 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.fc-r1 .src { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
+.fc-r1 .src .org { color: var(--ink-mute); font-weight: 600; letter-spacing: 0.06em; margin-left: 7px; }
+.fc-r1 .matur { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--brass-deep); }
+.fc-r1 .matur.imminent { color: var(--brass); }
+.fc-r1 .matur.past { color: var(--ink-mute); }
+.fc-claim { font-family: var(--serif); font-weight: 500; font-size: 17px; line-height: 1.4; letter-spacing: -0.005em; color: var(--ink); }
+.fc-r3 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.action-pill { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.2em; padding: 3px 8px; border: 1px solid currentColor; text-transform: uppercase; white-space: nowrap; background: var(--bg-card); }
+.action-pill.action-watch { color: var(--ink-mute); border-color: var(--rule-hi); }
+.action-pill.action-prep { color: var(--brass-deep); }
+.action-pill.action-act { color: white; background: var(--brass); border-color: var(--brass); letter-spacing: 0.22em; }
+.action-pill.action-verified { color: var(--inline); background: rgba(74,122,62,0.07); }
+.action-pill.action-off { color: var(--off); background: rgba(150,61,48,0.07); }
+.action-pill.action-overdue { color: var(--ink-mute); }
+.ev-chip { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; padding: 2px 6px; border: 1px solid hsla(var(--ev-h), 35%, 50%, 0.45); color: hsl(var(--ev-h), 50%, 26%); background: hsla(var(--ev-h), 50%, 50%, 0.07); }
+.impact-bars { display: inline-flex; gap: 1.5px; margin-left: auto; }
+.impact-bars i { width: 4px; height: 11px; background: var(--rule-hi); }
+.impact-bars i.on { background: var(--brass); }
+
+.dossier { background: var(--bg-card); border: 1px solid var(--rule); position: sticky; top: 0; }
+.dossier-empty { padding: 90px 40px; text-align: center; }
+.dossier-empty .glyph { font-family: var(--serif); font-style: italic; font-size: 80px; color: var(--brass-bg-2); font-weight: 400; line-height: 1; margin-bottom: 24px; }
+.dossier-empty p { font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--ink-dim); line-height: 1.6; }
+.dos-head { padding: 24px 28px 22px; border-bottom: 1px solid var(--rule); background: linear-gradient(180deg, var(--brass-bg) 0%, transparent 100%); }
+.dos-crumb { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--brass-deep); margin-bottom: 14px; }
+.status-pill { padding: 3px 9px; border: 1px solid currentColor; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; }
+.status-pill.tracking { color: var(--tracking); }
+.status-pill.pending { color: var(--pending); }
+.status-pill.inline { color: var(--inline); background: rgba(74,122,62,0.07); }
+.status-pill.off { color: var(--off); background: rgba(150,61,48,0.07); }
+.dos-head h2 { font-family: var(--serif); font-weight: 500; font-size: 24px; line-height: 1.22; letter-spacing: -0.016em; color: var(--ink); margin-bottom: 14px; }
+.dos-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.dos-source { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-soft); padding-top: 10px; border-top: 1px dashed var(--rule); }
+.dos-source b { color: var(--ink); font-weight: 700; }
+.dos-source em { font-family: var(--serif); font-style: italic; color: var(--ink-dim); font-size: 13px; letter-spacing: 0; margin-left: 7px; font-weight: 500; }
+.dos-source .when { color: var(--brass-deep); font-weight: 700; }
+
+.dos-section { padding: 22px 28px; border-bottom: 1px solid var(--rule); }
+.dos-section:last-child { border-bottom: none; }
+.dos-section h4 { font-family: var(--mono); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.24em; color: var(--ink-soft); margin-bottom: 14px; display: flex; align-items: center; gap: 12px; }
+.dos-section h4::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+.dos-section h4 .num { color: var(--brass); font-weight: 700; }
+.dos-section .body { font-family: var(--serif); font-style: italic; font-size: 16px; font-weight: 500; line-height: 1.6; color: var(--ink); letter-spacing: -0.005em; }
+
+.tl-track { position: relative; height: 76px; margin: 8px 0 12px; }
+.tl-axis { position: absolute; left: 0; right: 0; top: 38px; height: 1.5px; background: var(--rule-hi); }
+.tl-marker { position: absolute; top: 38px; transform: translate(-50%, -50%); text-align: center; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); }
+.tl-marker .dot { width: 10px; height: 10px; background: var(--ink-dim); border-radius: 50%; margin: 0 auto 8px; }
+.tl-marker.asserted .dot { background: var(--ink-soft); }
+.tl-marker.today .dot { background: var(--brass); box-shadow: 0 0 10px rgba(168,119,65,0.55); }
+.tl-marker.today { color: var(--brass-deep); }
+.tl-marker.maturity .dot { background: var(--inline); width: 13px; height: 13px; border: 2.5px solid var(--bg-card); }
+.tl-marker label { display: block; margin-top: 16px; letter-spacing: 0.1em; font-weight: 700; }
+.tl-window { position: absolute; top: 33px; height: 12px; background: rgba(168,119,65,0.2); border-left: 3px solid var(--brass); border-right: 3px solid var(--brass); }
+
+.crit-list { display: flex; flex-direction: column; gap: 10px; }
+.crit { display: grid; grid-template-columns: 16px 1fr auto; gap: 12px; align-items: start; padding: 9px 0; border-bottom: 1px dashed var(--rule); }
+.crit:last-child { border-bottom: none; }
+.crit .box { width: 14px; height: 14px; border: 1.5px solid var(--ink-mute); margin-top: 2px; position: relative; background: var(--bg-card); }
+.crit.met .box { border-color: var(--inline); background: rgba(74,122,62,0.13); }
+.crit.met .box::after { content: ''; position: absolute; inset: 1.5px; background: var(--inline); }
+.crit.miss .box { border-color: var(--off); background: rgba(150,61,48,0.07); }
+.crit.miss .box::after { content: '✕'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); color: var(--off); font-size: 10px; font-weight: 700; }
+.crit .text { font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.5; }
+.crit .text b { color: var(--brass-deep); font-weight: 700; }
+.crit .actual { font-family: var(--mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-dim); text-align: right; white-space: nowrap; }
+.crit.met .actual { color: var(--inline); }
+.crit.miss .actual { color: var(--off); }
+
+.scenarios { display: flex; flex-direction: column; gap: 14px; }
+.scen { display: grid; grid-template-columns: 70px 1fr; gap: 18px; padding-bottom: 14px; border-bottom: 1px dashed var(--rule); }
+.scen:last-child { border-bottom: none; padding-bottom: 0; }
+.scen .prob { font-family: var(--serif); font-style: italic; font-size: 36px; font-weight: 400; color: var(--brass); letter-spacing: -0.02em; line-height: 0.9; text-align: right; }
+.scen .prob small { display: block; font-family: var(--mono); font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); margin-top: 6px; }
+.scen .body .nm { font-family: var(--serif); font-style: italic; font-size: 16px; font-weight: 500; color: var(--ink); margin-bottom: 5px; }
+.scen .body .desc { font-size: 13.5px; font-weight: 500; color: var(--ink-soft); line-height: 1.55; margin-bottom: 8px; }
+.scen .body .action { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink); padding-top: 8px; border-top: 1px dotted var(--rule-hi); }
+.scen .body .action b { color: var(--brass-deep); font-weight: 700; }
+
+.pos-table { width: 100%; border-collapse: collapse; }
+.pos-table th, .pos-table td { padding: 9px 0; text-align: left; font-family: var(--mono); font-size: 12.5px; font-weight: 600; border-bottom: 1px dashed var(--rule); }
+.pos-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink-dim); padding-bottom: 7px; border-bottom: 1.5px solid var(--rule-hi); }
+.pos-table td.tk { color: var(--ink); font-weight: 700; letter-spacing: 0.04em; }
+.pos-table td.dir { text-transform: uppercase; font-size: 11px; letter-spacing: 0.2em; font-weight: 700; }
+.pos-table td.dir.long { color: var(--inline); }
+.pos-table td.dir.short { color: var(--off); }
+.pos-table td.num { text-align: right; }
+.pos-table td.pnl.up { color: var(--inline); font-weight: 700; }
+.pos-table td.pnl.down { color: var(--off); font-weight: 700; }
+
+/* ===== CALENDAR PAGE — Gantt style ===== */
+.cal-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: var(--bg-card); border: 1px solid var(--rule); flex-wrap: wrap; gap: 14px; }
+.cal-toolbar-right { display: flex; align-items: center; gap: 22px; }
+.cal-legend { display: flex; gap: 14px; align-items: center; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); }
+.cal-legend > span { display: inline-flex; align-items: center; }
+.legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+/* Gantt container */
+.gantt {
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-top: none;
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+  position: relative;
+}
+
+/* Layout grid: left fixed column 380px, right scrollable timeline */
+.gantt-head, .gantt-row {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+}
+
+/* Sticky header */
+.gantt-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-tint);
+  border-bottom: 1.5px solid var(--rule);
+}
+.gantt-head-left {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  padding: 14px 16px;
+  border-right: 1.5px solid var(--rule);
+  background: var(--bg-tint);
+  position: sticky; left: 0; z-index: 11;
+}
+.gh-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.gantt-head-right {
+  display: flex;
+  height: 48px;
+  position: relative;
+  min-width: max-content;
+}
+.gh-month {
+  flex-shrink: 0;
+  border-right: 1px solid var(--rule);
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.gh-month .gh-mo-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--ink-mute);
+}
+.gh-month.q-mark { background: var(--bg-cream); }
+
+/* Group separator — lane heading */
+.gantt-group {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px 10px;
+  background: var(--bg-tint);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  position: sticky;
+  left: 0;
+}
+.gantt-group .gg-count {
+  margin-left: auto;
+  color: var(--ink-mute);
+  font-weight: 600;
+}
+
+/* Body row */
+.gantt-row {
+  border-bottom: 1px solid var(--rule-soft);
+  cursor: pointer;
+  transition: background 0.12s;
+  min-height: 56px;
+}
+.gantt-row:hover { background: var(--bg-tint); }
+.gantt-row:hover .gantt-row-left { background: var(--bg-tint); }
+.gantt-row.selected { background: var(--brass-bg); }
+.gantt-row.selected .gantt-row-left { background: var(--brass-bg); }
+
+.gantt-row-left {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 10px;
+  border-right: 1.5px solid var(--rule);
+  background: var(--bg-card);
+  position: sticky; left: 0; z-index: 5;
+  transition: background 0.12s;
+}
+.gr-source {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.gr-source .gr-name {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gr-source .gr-org {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gr-claim {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.gr-claim .gr-headline {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gr-claim .gr-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.gr-claim .gr-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 1.5px 5px;
+  border: 1px solid var(--rule-hi);
+  color: var(--ink-soft);
+}
+.gr-claim .gr-state {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.gr-claim .gr-state.act { color: var(--brass-deep); }
+.gr-claim .gr-state.inline { color: var(--inline); }
+.gr-claim .gr-state.off { color: var(--off); }
+
+/* Right-side timeline area */
+.gantt-row-right {
+  position: relative;
+  min-width: max-content;
+}
+
+/* Vertical month/quarter grid lines spanning entire body */
+.gantt-grid-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: var(--rule-soft);
+  pointer-events: none;
+}
+.gantt-grid-line.q { background: var(--rule); }
+.gantt-grid-line.year { background: var(--rule-hi); }
+
+/* Today line */
+.gantt-today {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 0;
+  border-left: 2px solid var(--brass);
+  z-index: 8;
+  pointer-events: none;
+}
+.gantt-today::before {
+  content: 'TODAY';
+  position: absolute;
+  top: 6px;
+  left: 5px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--bg-card);
+  background: var(--brass);
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+/* Forecast bar inside row */
+.gantt-bar {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 18px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.gantt-bar .gb-line {
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: currentColor;
+  opacity: 0.35;
+}
+.gantt-bar .gb-window {
+  position: absolute;
+  height: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1.5px solid currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.gantt-bar .gb-node {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-card);
+  border: 2.5px solid currentColor;
+  border-radius: 50%;
+  z-index: 2;
+}
+.gantt-bar .gb-asserted {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: currentColor;
+  border-radius: 50%;
+  opacity: 0.55;
+  z-index: 1;
+}
+
+.gantt-bar.s-pending  { color: var(--pending); }
+.gantt-bar.s-tracking { color: var(--tracking); }
+.gantt-bar.s-inline   { color: var(--inline); }
+.gantt-bar.s-off      { color: var(--off); }
+
+/* ===== SCENARIOS PAGE ===== */
+.scen-summary { background: var(--bg-card); border: 1px solid var(--rule); padding: 30px 32px; margin-bottom: 32px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+.scen-summary .item { display: flex; flex-direction: column; gap: 8px; border-left: 3px solid var(--brass); padding-left: 22px; }
+.scen-summary .item .l { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); }
+.scen-summary .item .v { font-family: var(--serif); font-style: italic; font-size: 48px; font-weight: 400; color: var(--brass-deep); letter-spacing: -0.022em; line-height: 1; }
+.scen-summary .item .v.green { color: var(--inline); }
+.scen-summary .item .v small { font-style: normal; font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--ink-dim); margin-left: 5px; letter-spacing: 0.06em; }
+.scen-summary .item .sub { font-size: 14px; font-weight: 500; color: var(--ink-soft); line-height: 1.55; }
+
+.master-chain-full { display: grid; grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr 30px 1fr; align-items: stretch; }
+.mc-node-full { background: var(--bg-card); border: 1px solid var(--rule); border-top: 5px solid currentColor; padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; transition: all 0.15s; min-width: 0; }
+.mc-node-full:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,30,50,0.08); }
+.mc-node-full.s-pending { color: var(--pending); }
+.mc-node-full.s-tracking { color: var(--tracking); }
+.mc-node-full.s-inline { color: var(--inline); }
+.mc-node-full.s-off { color: var(--off); }
+
+.other-links { background: var(--bg-card); border: 1px solid var(--rule); padding: 26px 28px; }
+.link-row { display: grid; grid-template-columns: 1fr 60px 1fr; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px dashed var(--rule); }
+.link-row:last-child { border-bottom: none; }
+.link-card { background: var(--bg-tint); border-left: 3px solid var(--tracking); padding: 12px 16px; }
+.link-card .src { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 5px; }
+.link-card .claim { font-family: var(--serif); font-style: italic; font-size: 14.5px; font-weight: 500; color: var(--ink); line-height: 1.4; letter-spacing: -0.005em; }
+.link-arrow { text-align: center; font-family: var(--mono); font-size: 18px; color: var(--brass); font-weight: 700; }
+
+/* ===== HISTORY PAGE ===== */
+.hist-actions { display: flex; gap: 8px; align-items: center; }
+.hist-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid var(--rule-hi);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.hist-btn:hover { color: var(--ink); border-color: var(--ink); }
+.hist-btn-danger {
+  background: var(--brass);
+  color: white;
+  border-color: var(--brass);
+}
+.hist-btn-danger:hover { background: var(--brass-deep); border-color: var(--brass-deep); }
+.hist-btn-danger #hist-sel-count {
+  display: inline-block;
+  margin-left: 6px;
+  background: white;
+  color: var(--brass);
+  padding: 1px 6px;
+  letter-spacing: 0;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* History card checkbox */
+.hist-card { position: relative; transition: all 0.12s; }
+.hist-card .h-check {
+  position: absolute;
+  top: 14px;
+  left: -10px;
+  width: 22px;
+  height: 22px;
+  background: var(--bg-card);
+  border: 2px solid var(--rule-hi);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s;
+  z-index: 5;
+}
+.hist-card .h-check::after {
+  content: '';
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid white;
+  border-bottom: 2px solid white;
+  transform: rotate(-45deg) translate(1px, -1px);
+  opacity: 0;
+}
+.hist-card.selectable { padding-left: 36px; cursor: pointer; }
+.hist-card.selectable .h-check { display: flex; }
+.hist-card.selectable:hover .h-check { border-color: var(--brass); }
+.hist-card.selected { border-color: var(--brass); background: var(--brass-bg); }
+.hist-card.selected .h-check { background: var(--brass); border-color: var(--brass); }
+.hist-card.selected .h-check::after { opacity: 1; }
+.hist-day-block { margin-bottom: 30px; }
+.hist-day-head { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0 12px; margin-bottom: 12px; border-bottom: 2px solid var(--brass); }
+.hist-day-head h3 { font-family: var(--serif); font-weight: 500; font-size: 22px; letter-spacing: -0.012em; color: var(--ink); }
+.hist-day-head h3 b { color: var(--brass); font-weight: 700; margin-right: 10px; }
+.hist-day-head .meta { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+.hist-day-head .meta b { color: var(--brass-deep); margin-left: 7px; font-weight: 700; letter-spacing: 0.04em; font-size: 14px; }
+.hist-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.hist-card { background: var(--bg-card); border: 1px solid var(--rule); padding: 18px 22px; cursor: pointer; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.15s; }
+.hist-card:hover { border-color: var(--rule-hi); }
+.hist-card .meta { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-mute); text-transform: uppercase; }
+.hist-card .time { color: var(--ink-soft); letter-spacing: 0.04em; }
+.hist-card .method { letter-spacing: 0.2em; padding: 2px 7px; border: 1.5px solid currentColor; }
+.hist-card .method.url { color: var(--tracking); }
+.hist-card .method.upload { color: var(--brass-deep); }
+.hist-card .method.manual { color: var(--ink-soft); }
+.hist-card .status { margin-left: auto; letter-spacing: 0.2em; font-weight: 700; }
+.hist-card .status.tracking { color: var(--tracking); }
+.hist-card .status.pending { color: var(--pending); }
+.hist-card .status.inline { color: var(--inline); }
+.hist-card .claim { font-family: var(--serif); font-style: italic; font-size: 16px; font-weight: 500; line-height: 1.4; color: var(--ink); letter-spacing: -0.005em; }
+.hist-card .foot { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-dim); }
+.hist-card .src { color: var(--ink-2); letter-spacing: 0.16em; text-transform: uppercase; }
+.hist-card .link { color: var(--tracking); text-decoration: none; border-bottom: 1px solid var(--ink-faint); letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; font-family: var(--mono); font-size: 11px; font-weight: 600; }
+
+/* ===== SOURCES PAGE ===== */
+.src-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.src-card { background: var(--bg-card); border: 1px solid var(--rule); padding: 22px 26px; display: grid; grid-template-columns: 1fr 100px; gap: 18px; align-items: center; position: relative; cursor: pointer; transition: all 0.15s; }
+.src-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,30,50,0.06); }
+.src-card.top::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--brass); }
+.src-card .info { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.src-card .nm { display: flex; align-items: baseline; gap: 11px; }
+.src-card .nm h3 { font-family: var(--serif); font-weight: 600; font-size: 22px; letter-spacing: -0.012em; color: var(--ink); }
+.src-card .nm em { font-family: var(--serif); font-style: italic; font-size: 13.5px; font-weight: 500; color: var(--ink-dim); }
+.src-card .n { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-mute); margin-left: auto; }
+.src-card .n b { color: var(--ink-soft); margin-left: 5px; font-weight: 700; }
+.tr-bars { display: flex; flex-direction: column; gap: 8px; }
+.tr-bar-row { display: grid; grid-template-columns: 50px 1fr 36px; gap: 12px; align-items: center; }
+.tr-bar-row .lbl { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; color: var(--ink-mute); text-transform: uppercase; }
+.tr-bar-row .bar { height: 6px; background: var(--rule); position: relative; overflow: hidden; }
+.tr-bar-row .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brass); }
+.tr-bar-row .bar.tim i { background: var(--brass-2); }
+.tr-bar-row .pct { font-family: var(--mono); font-size: 12px; font-weight: 700; text-align: right; color: var(--ink-soft); letter-spacing: 0.04em; }
+.src-card .composite { text-align: center; border-left: 1px solid var(--rule); padding-left: 18px; }
+.src-card .composite .l { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 5px; }
+.src-card .composite .v { font-family: var(--serif); font-style: italic; font-size: 40px; font-weight: 400; color: var(--brass-deep); letter-spacing: -0.024em; line-height: 1; }
+.src-card.top .composite .v { color: var(--inline); }
+.src-card .composite .v small { font-family: var(--mono); font-size: 12px; font-weight: 700; font-style: normal; color: var(--ink-dim); letter-spacing: 0.06em; margin-left: 2px; }
+
+/* ===== VERIFICATION PAGE ===== */
+.verif-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-bottom: 36px; }
+.verif-stat { background: var(--bg-card); border: 1px solid var(--rule); border-top: 4px solid currentColor; padding: 26px 28px; cursor: pointer; transition: all 0.18s; }
+.verif-stat:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,30,50,0.06); }
+.verif-stat.in { color: var(--inline); }
+.verif-stat.partial { color: var(--pending); }
+.verif-stat.off { color: var(--off); }
+.verif-stat.on { background: var(--brass-bg); }
+.verif-stat .l { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; }
+.verif-stat .v { font-family: var(--serif); font-style: italic; font-size: 64px; font-weight: 400; color: currentColor; letter-spacing: -0.022em; line-height: 1; margin-bottom: 10px; }
+.verif-stat .v small { font-style: normal; font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--ink-dim); letter-spacing: 0.04em; margin-left: 6px; }
+.verif-stat .sub { font-size: 14px; font-weight: 500; color: var(--ink-soft); line-height: 1.55; }
+
+.verif-list { display: flex; flex-direction: column; gap: 14px; }
+.verif-item { background: var(--bg-card); border: 1px solid var(--rule); border-left: 4px solid currentColor; padding: 22px 24px; display: grid; grid-template-columns: 1fr 200px; gap: 22px; align-items: start; }
+.verif-item.in { color: var(--inline); }
+.verif-item.partial { color: var(--pending); }
+.verif-item.off { color: var(--off); }
+.verif-item .body { color: var(--ink); }
+.verif-item .body .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.verif-item .body .head h4 { font-family: var(--serif); font-weight: 500; font-size: 18px; letter-spacing: -0.01em; color: var(--ink); }
+.verif-item .body .head .verdict { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; padding: 3px 9px; border: 1px solid currentColor; color: currentColor; }
+.verif-item .body .head .verdict.in { background: rgba(74,122,62,0.07); }
+.verif-item .body .head .verdict.partial { background: rgba(184,136,54,0.07); }
+.verif-item .body .head .verdict.off { background: rgba(150,61,48,0.07); }
+.verif-item .body .src { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
+.verif-item .body .lesson { font-family: var(--serif); font-style: italic; font-size: 15px; font-weight: 500; line-height: 1.55; color: var(--ink-soft); letter-spacing: -0.005em; padding: 10px 14px; background: var(--bg-tint); border-left: 2px solid var(--rule-hi); margin-top: 10px; }
+.verif-item .impact { text-align: right; }
+.verif-item .impact .l { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.verif-item .impact .v { font-family: var(--mono); font-size: 17px; font-weight: 700; color: currentColor; letter-spacing: -0.005em; }
+
+/* ===== POSITIONS PAGE ===== */
+.pos-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; margin-bottom: 32px; }
+.pos-stat { background: var(--bg-card); border: 1px solid var(--rule); padding: 22px 24px; }
+.pos-stat .l { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.pos-stat .v { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -0.005em; }
+.pos-stat .v.up { color: var(--inline); }
+.pos-stat .v.down { color: var(--off); }
+.pos-table-full { background: var(--bg-card); border: 1px solid var(--rule); width: 100%; border-collapse: collapse; }
+.pos-table-full th, .pos-table-full td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--rule-soft); }
+.pos-table-full thead { background: var(--bg-tint); }
+.pos-table-full th { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); border-bottom: 1.5px solid var(--rule); }
+.pos-table-full td.ticker { font-family: var(--mono); font-size: 14.5px; font-weight: 700; color: var(--ink); letter-spacing: 0.04em; }
+.pos-table-full td.dir { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
+.pos-table-full td.dir.long { color: var(--inline); }
+.pos-table-full td.dir.short { color: var(--off); }
+.pos-table-full td.linked { font-family: var(--serif); font-style: italic; font-size: 14.5px; font-weight: 500; color: var(--ink); line-height: 1.4; }
+.pos-table-full td.linked b { font-family: var(--mono); font-size: 11px; font-weight: 700; font-style: normal; color: var(--brass-deep); letter-spacing: 0.06em; margin-right: 8px; }
+.pos-table-full td.size { font-family: var(--mono); font-size: 13.5px; font-weight: 600; color: var(--ink-soft); text-align: right; }
+.pos-table-full td.pnl { font-family: var(--mono); font-size: 14.5px; font-weight: 700; text-align: right; letter-spacing: -0.005em; }
+.pos-table-full td.pnl.up { color: var(--inline); }
+.pos-table-full td.pnl.down { color: var(--off); }
+.pos-table-full tbody tr:hover { background: var(--bg-tint); cursor: pointer; }
+
+/* ===== SETTINGS PAGE ===== */
+.set-card { background: var(--bg-card); border: 1px solid var(--rule); padding: 26px 30px; margin-bottom: 18px; }
+.set-card h3 { font-family: var(--serif); font-weight: 600; font-size: 19px; letter-spacing: -0.012em; color: var(--ink); margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+.set-row { display: grid; grid-template-columns: 200px 1fr auto; gap: 20px; align-items: center; padding: 14px 0; border-bottom: 1px dashed var(--rule); }
+.set-row:last-child { border-bottom: none; }
+.set-row .label { font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.set-row .desc { font-size: 13.5px; font-weight: 500; color: var(--ink-soft); }
+.set-row .ctrl { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brass-deep); cursor: pointer; }
+.toggle { width: 44px; height: 24px; background: var(--rule-hi); border-radius: 12px; position: relative; cursor: pointer; transition: background 0.2s; }
+.toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: left 0.2s; }
+.toggle.on { background: var(--brass); }
+.toggle.on::after { left: 23px; }
+
+/* ===== NOTIFICATIONS PAGE ===== */
+.notif-list { display: flex; flex-direction: column; gap: 10px; }
+.notif { background: var(--bg-card); border: 1px solid var(--rule); padding: 18px 22px; display: grid; grid-template-columns: 8px 1fr 100px; gap: 16px; cursor: pointer; transition: border-color 0.15s; }
+.notif:hover { border-color: var(--rule-hi); }
+.notif.unread { border-left: 4px solid var(--brass); padding-left: 18px; }
+.notif .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); margin-top: 8px; }
+.notif.unread .dot { background: var(--brass); box-shadow: 0 0 8px rgba(168,119,65,0.5); }
+.notif .body { display: flex; flex-direction: column; gap: 6px; }
+.notif .meta { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass-deep); }
+.notif .msg { font-family: var(--sans); font-size: 15px; font-weight: 500; line-height: 1.5; color: var(--ink); }
+.notif .msg b { font-weight: 700; color: var(--ink); }
+.notif .ago { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-mute); text-align: right; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="sb-brand" data-route="dashboard">
+      <div class="logo"><span class="mk">S</span>trategy<em>·</em>to<em>·</em>Calendar</div>
+      <div class="logo-rule"></div>
+      <div class="logo-sub">v · 20260508</div>
+    </div>
+
+    <div class="sb-section">Workspace</div>
+    <nav class="sb-nav">
+      <a data-route="dashboard" class="active"><span class="ic">▦</span>대시보드</a>
+      <a data-route="inbox"><span class="ic">☰</span>전망 인박스 <span class="badge">13</span></a>
+      <a data-route="calendar"><span class="ic">▤</span>캘린더</a>
+      <a data-route="scenarios"><span class="ic">⇌</span>시나리오 맵</a>
+      <a data-route="history"><span class="ic">⤓</span>히스토리 <span class="badge">47</span></a>
+    </nav>
+
+    <div class="sb-section">Analytics</div>
+    <nav class="sb-nav">
+      <a data-route="sources"><span class="ic">★</span>전망자 점수</a>
+      <a data-route="verification"><span class="ic">✓</span>검증 결과</a>
+      <a data-route="positions"><span class="ic">▣</span>포지션 매핑</a>
+    </nav>
+
+    <div class="sb-section">System</div>
+    <nav class="sb-nav">
+      <a data-route="settings"><span class="ic">⚙</span>설정</a>
+      <a data-route="notifications"><span class="ic">⚐</span>알림 <span class="badge warn">3</span></a>
+    </nav>
+
+    <div class="sb-foot">
+      <div class="sb-account">
+        <div>
+          <div class="nm">David Cho</div>
+          <div class="role">CIO Macro</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+
+    <header class="topbar">
+      <div class="tb-title">
+        <h1 id="page-title">대시보드 <em>· 오늘</em></h1>
+        <div class="sub" id="page-sub">2026년 5월 7일 목요일 · Live</div>
+      </div>
+
+    </header>
+
+    <section class="intake show" id="intake">
+      <div class="ib-row">
+        <div class="ib-glyph">Capture</div>
+        <div class="ib-tabs">
+          <div class="ib-tab on" data-mode="url">URL</div>
+          <div class="ib-tab" data-mode="upload">Upload</div>
+          <div class="ib-tab" data-mode="manual">Manual</div>
+        </div>
+        <div class="ib-pane on" data-pane="url">
+          <input class="field" id="url-input" type="text" placeholder="기사·트윗·리서치 URL을 붙여넣으세요">
+          <button class="ib-btn" id="extract-btn">Extract</button>
+        </div>
+        <div class="ib-pane upload-pane" data-pane="upload">
+          <input type="file" id="file-input" accept=".pdf,.docx,.txt,.doc,image/jpeg,image/png,image/webp,image/gif" style="display:none">
+          <div class="drop" id="drop-zone">
+            <b>Drop file</b>or click — PDF · DOCX · TXT · JPG · PNG
+          </div>
+          <div class="upload-preview" id="upload-preview" style="display:none">
+            <img id="upload-thumb" alt="">
+            <div class="up-info">
+              <div class="up-name" id="up-name">—</div>
+              <div class="up-meta" id="up-meta">—</div>
+            </div>
+            <button class="up-clear" id="up-clear" title="제거">×</button>
+          </div>
+          <button class="ib-btn" id="process-btn">Process</button>
+        </div>
+        <div class="ib-pane manual-pane" data-pane="manual">
+          <div class="mfield"><label>Source</label><input type="text" placeholder="조윤남" style="width:130px"></div>
+          <div class="mfield" style="flex:1"><label>Claim</label><input type="text" placeholder="간단한 전망 명제"></div>
+          <div class="mfield"><label>Maturity</label><input type="text" placeholder="2026.08" style="width:120px"></div>
+          <button class="ib-btn">+ Add</button>
+        </div>
+        <div class="ib-summary">
+          <div>오늘<b>3</b></div>
+          <div>대기<b>2</b></div>
+        </div>
+      </div>
+
+      <div class="preview-overlay" id="extract-preview">
+        <div class="po-head">
+          <h4>Forecast extracted <b>· auto-parsed by NLP</b></h4>
+          <div class="po-conf">Confidence<b>92%</b></div>
+        </div>
+        <div class="po-grid">
+          <div class="lbl">Source</div>      <div class="val" id="ep-source">—</div>
+          <div class="lbl">Asserted</div>    <div class="val" id="ep-asserted">—</div>
+          <div class="lbl">Maturity</div>    <div class="val" id="ep-maturity">—</div>
+          <div class="lbl">Tags</div>        <div class="val" id="ep-tags">—</div>
+          <div class="lbl">Claim</div>       <div class="val claim" id="ep-claim">—</div>
+        </div>
+        <div class="po-actions">
+          <button class="btn secondary" id="ep-discard">Discard</button>
+          <button class="btn secondary">Edit</button>
+          <button class="btn primary" id="ep-confirm">Confirm & Add</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="page-body">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <section class="section">
+          <div class="section-head">
+            <h2>오늘 우선순위 <em>· top three</em></h2>
+            <a class="more" data-route="inbox">전체 인박스 13</a>
+          </div>
+          <div class="action-grid" id="action-grid"></div>
+        </section>
+
+        <section class="section">
+          <div class="two-col">
+            <div>
+              <div class="section-head" style="margin-bottom:18px">
+                <h2>전망 캘린더 <em>· 2026년 5월</em></h2>
+                <a class="more" data-route="calendar">전체 타임라인</a>
+              </div>
+              <div class="mini-cal">
+                <div class="mc-head">
+                  <div class="mc-month">May<b>2026 · 5월</b></div>
+                  <div class="mc-nav">
+                    <button>‹</button>
+                    <button class="today-btn">Today</button>
+                    <button>›</button>
+                  </div>
+                </div>
+                <div class="mc-grid" id="mc-grid"></div>
+              </div>
+            </div>
+            <aside class="aside-stack">
+              <div class="aside-card">
+                <h3>검증 현황 <em>· 12개월</em></h3>
+                <div class="kpi-row">
+                  <div class="kpi-line"><span class="l">In-line</span><span class="v up">17</span></div>
+                  <div class="kpi-line"><span class="l">Partial</span><span class="v">8</span></div>
+                  <div class="kpi-line"><span class="l">Off-target</span><span class="v down">4</span></div>
+                </div>
+                <div class="verif-vis">
+                  <i class="in"  style="flex:17"></i>
+                  <i class="mix" style="flex:8"></i>
+                  <i class="off" style="flex:4"></i>
+                </div>
+                <div class="verif-vis-labels"><span>59%</span><span>27%</span><span>14%</span></div>
+              </div>
+
+              <div class="aside-card">
+                <h3>오늘 추가 <em>· 3 captured</em></h3>
+                <div class="hist-mini" id="hist-mini"></div>
+                <a class="more" data-route="history">히스토리 전체보기</a>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>핵심 인과 사슬 <em>· master thesis chain</em></h2>
+            <a class="more" data-route="scenarios">시나리오 맵</a>
+          </div>
+          <div class="chain-strip">
+            <div class="chain-head">
+              <h3>인플레 → 원유 → Fed → USD → KOSPI</h3>
+              <div class="chain-meta">
+                <span>Length<b>5</b></span>
+                <span>Horizon<b>8개월</b></span>
+                <span class="green">Coherence<b>100%</b></span>
+              </div>
+            </div>
+            <div class="chain-flow" id="chain-flow"></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>진단 <em>· Diagnostics</em></h2>
+            <a class="more" data-route="verification">검증 결과</a>
+          </div>
+          <div class="status-grid">
+            <div class="stat-card" data-route="verification">
+              <span class="l">검증 적중률 · 12M</span>
+              <span class="big green">59<small>%</small></span>
+              <span class="sub"><b>17건 in-line</b> · 8건 partial · 4건 off. 조윤남 + In-house Desk가 적중률 평균을 끌어올림.</span>
+            </div>
+            <div class="stat-card" data-route="calendar">
+              <span class="l">Convergence 임박</span>
+              <span class="big amber">25<small>일</small></span>
+              <span class="sub">6월 1일부터 <b>Oil · Inflation · Fed</b> 3개 카테고리에서 4개 전망 동시 만기. 사전 포지셔닝 필요.</span>
+            </div>
+            <div class="stat-card" data-route="inbox">
+              <span class="l">즉시 행동 필요</span>
+              <span class="big">3<small>건</small></span>
+              <span class="sub"><b>14일 내 만기</b> 도래. 검증 기준 일부 충족, 시나리오 분기 결정 시점 임박.</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- INBOX -->
+      <div class="page" id="page-inbox">
+        <div class="toolbar">
+          <div class="chips" id="inbox-filters">
+            <span class="chip on" data-f="all">All</span>
+            <span class="chip" data-f="tracking">Tracking</span>
+            <span class="chip" data-f="pending">Pending</span>
+            <span class="chip" data-f="inline">In-line</span>
+            <span class="chip" data-f="off">Off</span>
+          </div>
+          <div class="right">정렬<b>만기 임박순</b></div>
+        </div>
+        <div class="inbox-layout">
+          <div class="inbox-list" id="inbox-list"></div>
+          <div class="dossier" id="dossier"></div>
+        </div>
+      </div>
+
+      <!-- CALENDAR -->
+      <div class="page" id="page-calendar">
+        <div class="cal-toolbar">
+          <div class="chips" id="cal-filters">
+            <span class="chip on" data-cf="all">All sources</span>
+            <span class="chip" data-cf="legend">Macro Legends</span>
+            <span class="chip" data-cf="sellside">Sell-side</span>
+            <span class="chip" data-cf="inhouse">In-house</span>
+            <span class="chip" data-cf="korea">KR Analysts</span>
+          </div>
+          <div class="cal-toolbar-right">
+            <span class="cal-legend">
+              <span><i class="legend-dot" style="background:var(--pending)"></i>Pending</span>
+              <span><i class="legend-dot" style="background:var(--tracking)"></i>Tracking</span>
+              <span><i class="legend-dot" style="background:var(--inline)"></i>In-line</span>
+              <span><i class="legend-dot" style="background:var(--off)"></i>Off</span>
+            </span>
+          </div>
+        </div>
+        <div class="gantt" id="gantt">
+          <div class="gantt-head">
+            <div class="gantt-head-left">
+              <span class="gh-label">SOURCE</span>
+              <span class="gh-label">FORECAST</span>
+            </div>
+            <div class="gantt-head-right" id="gantt-head-right"></div>
+          </div>
+          <div class="gantt-body" id="gantt-body"></div>
+        </div>
+      </div>
+
+      <!-- SCENARIOS -->
+      <div class="page" id="page-scenarios">
+        <div class="scen-summary">
+          <div class="item">
+            <span class="l">Chain Length</span>
+            <span class="v" id="chain-len">5<small>개 노드</small></span>
+            <span class="sub" id="chain-path">조윤남 인플레 → JPM 원유 → GS Fed → BW USD → KOSPI</span>
+          </div>
+          <div class="item">
+            <span class="l">Horizon</span>
+            <span class="v" id="chain-horizon">8<small>개월</small></span>
+            <span class="sub">사슬 첫 발화에서 마지막 만기까지의 검증 기간</span>
+          </div>
+          <div class="item">
+            <span class="l">Coherence</span>
+            <span class="v green" id="chain-coherence">100<small>%</small></span>
+            <span class="sub" id="chain-coherence-sub">모든 노드 in-line 또는 tracking 상태. 사슬 미파괴.</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <h2>Master Thesis Chain <em>· dominant causal pathway</em></h2>
+          </div>
+          <div class="master-chain-full" id="master-chain-full"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <h2>다른 인과 연결 <em>· secondary linkages</em></h2>
+          </div>
+          <div class="other-links" id="other-links"></div>
+        </div>
+      </div>
+
+      <!-- HISTORY -->
+      <div class="page" id="page-history">
+        <div class="toolbar">
+          <div class="chips" id="hist-filters">
+            <span class="chip on" data-hf="all">All</span>
+            <span class="chip" data-hf="url">URL</span>
+            <span class="chip" data-hf="upload">Upload</span>
+            <span class="chip" data-hf="manual">Manual</span>
+          </div>
+          <div class="hist-actions" id="hist-actions">
+            <button class="hist-btn" id="hist-select-toggle">선택</button>
+            <button class="hist-btn hist-btn-all" id="hist-select-all" style="display:none">전체 선택</button>
+            <button class="hist-btn hist-btn-clear" id="hist-select-clear" style="display:none">선택 해제</button>
+            <button class="hist-btn hist-btn-danger" id="hist-delete" style="display:none">선택 삭제 <span id="hist-sel-count">0</span></button>
+            <button class="hist-btn" id="hist-cancel" style="display:none">취소</button>
+          </div>
+        </div>
+        <div id="hist-content"></div>
+      </div>
+
+      <!-- SOURCES -->
+      <div class="page" id="page-sources">
+        <div class="toolbar">
+          <div class="chips">
+            <span class="chip on">전체 11명</span>
+            <span class="chip">Macro Legends</span>
+            <span class="chip">Sell-side</span>
+            <span class="chip">In-house</span>
+            <span class="chip">KR Analysts</span>
+          </div>
+          <div class="right">정렬<b>Composite Score</b></div>
+        </div>
+        <div class="src-grid" id="src-grid"></div>
+      </div>
+
+      <!-- VERIFICATION -->
+      <div class="page" id="page-verification">
+        <div class="verif-summary" id="verif-summary"></div>
+        <div class="section-head">
+          <h2 id="verif-section-title">In-line · 검증 일치 <em>17건</em></h2>
+        </div>
+        <div class="verif-list" id="verif-list"></div>
+      </div>
+
+      <!-- POSITIONS -->
+      <div class="page" id="page-positions">
+        <div class="pos-summary">
+          <div class="pos-stat"><span class="l">Total Book Size</span><span class="v">₩ 412.8B</span></div>
+          <div class="pos-stat"><span class="l">Linked to Forecast</span><span class="v">73.4%</span></div>
+          <div class="pos-stat"><span class="l">P&L · MTD</span><span class="v up">+ 2.41%</span></div>
+          <div class="pos-stat"><span class="l">Unlinked Drag</span><span class="v down">−0.42%</span></div>
+        </div>
+        <table class="pos-table-full" id="pos-table"></table>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="set-card">
+          <h3>프로필</h3>
+          <div class="set-row">
+            <span class="label">CIO</span>
+            <span class="desc">David Cho · CFA · 25년차 Macro Lead</span>
+            <span class="ctrl">편집</span>
+          </div>
+          <div class="set-row">
+            <span class="label">팀</span>
+            <span class="desc">In-house Desk · Macro & KR Equity · 4명</span>
+            <span class="ctrl">관리</span>
+          </div>
+          <div class="set-row">
+            <span class="label">시간대</span>
+            <span class="desc">Asia/Seoul (KST) · UTC+9</span>
+            <span class="ctrl">변경</span>
+          </div>
+        </div>
+
+        <div class="set-card">
+          <h3>인입 자동화</h3>
+          <div class="set-row">
+            <span class="label">RSS 자동 인입</span>
+            <span class="desc">FT, Bloomberg, BoK, KOSTAT 등 8개 피드 실시간 모니터링</span>
+            <span class="toggle on"></span>
+          </div>
+          <div class="set-row">
+            <span class="label">X 팔로우 추출</span>
+            <span class="desc">팔로우한 12명 전망자의 트윗에서 forecast 자동 추출 → Drafts</span>
+            <span class="toggle on"></span>
+          </div>
+          <div class="set-row">
+            <span class="label">NLP 자동 태깅</span>
+            <span class="desc">Eventology 7개 카테고리 자동 분류 (Confidence ≥85%)</span>
+            <span class="toggle on"></span>
+          </div>
+          <div class="set-row">
+            <span class="label">Drafts 자동 만료</span>
+            <span class="desc">7일간 미검토 시 자동 폐기</span>
+            <span class="toggle"></span>
+          </div>
+        </div>
+
+        <div class="set-card">
+          <h3>알림</h3>
+          <div class="set-row">
+            <span class="label">ACT 상태 진입</span>
+            <span class="desc">forecast가 14일 이내 만기 도래 시 즉시 알림</span>
+            <span class="toggle on"></span>
+          </div>
+          <div class="set-row">
+            <span class="label">Convergence 30D 전</span>
+            <span class="desc">2개 이상 forecast 동시 만기 30일 전 사전 알림</span>
+            <span class="toggle on"></span>
+          </div>
+          <div class="set-row">
+            <span class="label">Master Chain 파괴</span>
+            <span class="desc">core thesis 노드 off-target 검증 시 즉시 알림</span>
+            <span class="toggle on"></span>
+          </div>
+        </div>
+
+        <div class="set-card">
+          <h3>데이터 관리 <em style="font-family:var(--serif);font-style:italic;color:var(--brass);font-size:14px;font-weight:400;margin-left:10px">· local storage</em></h3>
+          <div class="set-row">
+            <span class="label">현재 저장 상태</span>
+            <span class="desc" id="set-stats">계산 중…</span>
+            <span class="ctrl" id="set-export">JSON 내보내기</span>
+          </div>
+          <div class="set-row">
+            <span class="label">데모 데이터로 재설정</span>
+            <span class="desc">현재 데이터를 모두 삭제하고 시드 13건 + 17건 히스토리로 복원</span>
+            <span class="ctrl" id="set-reseed" style="color:var(--brass-deep)">재설정 ↻</span>
+          </div>
+          <div class="set-row">
+            <span class="label">전체 초기화</span>
+            <span class="desc">모든 forecast · 히스토리 삭제 — 빈 인박스부터 직접 채워나가기</span>
+            <span class="ctrl" id="set-clear" style="color:var(--off)">전체 삭제 ⊗</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTIFICATIONS -->
+      <div class="page" id="page-notifications">
+        <div class="toolbar">
+          <div class="chips">
+            <span class="chip on">All · 12</span>
+            <span class="chip">Unread · 3</span>
+            <span class="chip">Critical</span>
+            <span class="chip">Convergence</span>
+          </div>
+          <div class="right">읽음 처리<b>전체</b></div>
+        </div>
+        <div class="notif-list" id="notif-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   STRATEGY TO CALENDAR · 20260508
+   Full 10-page routed app
+   ====================================================================== */
+
+const TODAY      = new Date('2026-05-07');
+const CAL_START  = new Date('2026-05-01');
+const CAL_END    = new Date('2028-12-31');
+const DAY_MS     = 86400000;
+const PX_PER_DAY = 5.4;
+
+const dayDiff = (a, b) => Math.round((b - a) / DAY_MS);
+const daysToMaturity = fc => dayDiff(TODAY, new Date(fc.maturity.center));
+const xPos    = d => dayDiff(CAL_START, new Date(d)) * PX_PER_DAY;
+const fmtDate = d => { const x = new Date(d); return `${x.getFullYear()}.${String(x.getMonth()+1).padStart(2,'0')}.${String(x.getDate()).padStart(2,'0')}`; };
+
+const EVENTOLOGY = {
+  MA: { name: '통화정책',    hue: 215 },
+  CM: { name: '상품·원자재', hue: 32  },
+  FX: { name: '외환',        hue: 290 },
+  GR: { name: '성장·경기',   hue: 100 },
+  PR: { name: '정책·규제',   hue: 45  },
+  CE: { name: '기업실적',    hue: 195 },
+  PI: { name: '지정학·리스크', hue: 8 }
+};
+
+const SEED_SOURCES = {
+  dalio:   { name: 'Ray Dalio',      org: 'Bridgewater 창립자',  lane: 'legend',   tr_dir: 0.68, tr_tim: 0.42, n: 47 },
+  bw:      { name: 'Bridgewater',    org: 'Daily Observations',   lane: 'legend',   tr_dir: 0.62, tr_tim: 0.48, n: 86 },
+  woods:   { name: 'C. Wood',        org: 'ARK Invest',           lane: 'legend',   tr_dir: 0.40, tr_tim: 0.28, n: 62 },
+  jpm:     { name: 'JP Morgan',      org: 'Cross-Asset Research', lane: 'sellside', tr_dir: 0.55, tr_tim: 0.55, n: 124 },
+  gs:      { name: 'Goldman Sachs',  org: 'Global Strategy',      lane: 'sellside', tr_dir: 0.52, tr_tim: 0.50, n: 138 },
+  ms:      { name: 'Morgan Stanley', org: 'KR Equity Strategy',   lane: 'sellside', tr_dir: 0.60, tr_tim: 0.55, n: 92 },
+  cs:      { name: 'Citi',           org: 'Surveys & Quant',      lane: 'sellside', tr_dir: 0.50, tr_tim: 0.48, n: 71 },
+  inhouse: { name: 'In-house Desk',  org: 'Macro & KR Team',      lane: 'inhouse',  tr_dir: 0.65, tr_tim: 0.62, n: 38 },
+  cho:     { name: '조윤남',          org: 'Market Anomaly',       lane: 'korea',    tr_dir: 0.74, tr_tim: 0.68, n: 41 },
+  shin:    { name: '신영증권',        org: 'Strategy Team',        lane: 'korea',    tr_dir: 0.55, tr_tim: 0.55, n: 58 },
+  bok:     { name: 'BOK Research',   org: '한국은행 조사국',      lane: 'korea',    tr_dir: 0.48, tr_tim: 0.42, n: 64 }
+};
+Object.values(SEED_SOURCES).forEach(s => s.tr_comp = +(s.tr_dir * 0.6 + s.tr_tim * 0.4).toFixed(2));
+
+const LANES = {
+  legend:   { top: 12,  h: 116, label: 'Macro Legends' },
+  sellside: { top: 130, h: 116, label: 'Sell-side Research' },
+  inhouse:  { top: 248, h: 116, label: 'In-house Desk' },
+  korea:    { top: 366, h: 116, label: 'Korean Analysts' }
+};
+
+const SEED_FORECASTS = [
+  { id: 'FC-2026-0502-B', src: 'jpm', asserted: '2026-05-02',
+    maturity: { start: '2026-06-01', end: '2026-07-31', center: '2026-07-01' },
+    headline: '미국 원유재고 빠른 감소',
+    claim_short: '6월부터 미국 원유 재고가 빠르게 감소',
+    claim_full: '"6월부터 전세계 미국 원유 재고가 빠르게 감소할 것이다. 정유 가동률 상승, 여름 드라이빙 시즌, OPEC+ 추가 감산 가능성."',
+    impact: 4, status: 'tracking', tags: ['CM'],
+    criteria: [
+      { txt: 'EIA 주간 재고 <b>−5MMbbl</b> 이상 (6월 첫 2주)', actual: '대기',  status: 'pending' },
+      { txt: '美 정유 가동률 <b>92% 이상</b>',                actual: '92.4%', status: 'met' },
+      { txt: 'OPEC+ 6월 회의 추가 감산 발표',                actual: '대기',  status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 재고 급감 + 유가 급등',  prob: 0.55, action: 'XOM/CVX +250bp · 항공주 −100bp · 인플레 헤지 강화', desc: 'WTI 95달러 돌파 시 인플레 재가속' },
+      { name: 'B — 재고 감소 + 가격 박스',  prob: 0.30, action: '에너지 ETF 중립 · 정유 마진 long', desc: '수급 균형, OPEC+ 동결 시' },
+      { name: 'C — 재고 감소 실패',         prob: 0.15, action: '재진단 · 단기 short 진입',         desc: '글로벌 수요 둔화 가시화' }
+    ],
+    positions: [
+      { tk: 'XOM',           dir: 'long',  size: '150bp', pnl: +1.24 },
+      { tk: 'WTI Q3 future', dir: 'long',  size: '200bp', pnl: +0.88 },
+      { tk: 'KAL/AAL',       dir: 'short', size: '80bp',  pnl: -0.32 }
+    ]
+  },
+  { id: 'FC-2026-005930', src: 'cho', asserted: '2026-04-15',
+    maturity: { start: '2026-08-01', end: '2026-08-31', center: '2026-08-15' },
+    headline: '삼성전자 8월 약세',
+    claim_short: '8월부터 삼성전자 주가 하락 — Market Anomaly',
+    claim_full: '"8월부터 삼성전자 주가는 하락할 것. 메모리 사이클 정점 통과, AI capex 성장 둔화, 외국인 순매도 전환 패턴."',
+    impact: 4, status: 'tracking', tags: ['CE'],
+    criteria: [
+      { txt: 'DRAM 현물 가격 <b>전월대비 −3% 이상 하락</b>',  actual: '−1.8%',  status: 'partial' },
+      { txt: '외국인 누적 순매도 <b>1조원 이상</b>',          actual: '대기',    status: 'pending' },
+      { txt: '주가 <b>72,000원 이하</b> 돌파',               actual: '78,400원', status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 시그니처 하락',  prob: 0.50, action: '005930 −200bp · KQ150 long · 코스피 헤지', desc: '8월 중순 −8% 이상' },
+      { name: 'B — 박스권',         prob: 0.35, action: '비중 유지 · IT 중·소형주 로테이션', desc: '75K~80K 횡보' },
+      { name: 'C — 재상승',         prob: 0.15, action: '재진단 · long 추가', desc: 'AI capex 재가속' }
+    ],
+    positions: [
+      { tk: '005930',  dir: 'short', size: '120bp', pnl: -0.15 },
+      { tk: 'SK hynix', dir: 'short', size: '60bp', pnl: -0.08 }
+    ]
+  },
+  { id: 'FC-2026-FED75', src: 'gs', asserted: '2026-04-22',
+    maturity: { start: '2026-09-01', end: '2026-09-30', center: '2026-09-17' },
+    headline: 'Fed 누적 75bp 인하',
+    claim_short: 'Fed 9월 FOMC까지 누적 75bp 인하',
+    claim_full: '"Fed가 6월·7월·9월 FOMC를 통해 누적 75bp 인하. 인플레 안정 + 노동시장 둔화로 컨센서스(50bp) 대비 25bp 추가 인하."',
+    impact: 5, status: 'tracking', tags: ['MA'],
+    criteria: [
+      { txt: '미 코어 PCE <b>2.5% 이하</b> 도달',  actual: '2.7%',  status: 'partial' },
+      { txt: '실업률 <b>4.3% 이상</b>',           actual: '4.1%',  status: 'pending' },
+      { txt: 'Fed Dot 중간값 <b>3.75% 이하</b>',   actual: '4.00%', status: 'partial' },
+      { txt: '6월 FOMC <b>25bp 인하</b>',         actual: '대기',  status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 75bp 풀패키지', prob: 0.45, action: 'IEF +250bp · 성장주 +150bp · USD short', desc: '컨센서스 충족 + 추가 25bp' },
+      { name: 'B — 50bp 컨센서스', prob: 0.40, action: '중립 유지', desc: '시장 prices in' },
+      { name: 'C — 25bp 매파적',   prob: 0.15, action: '듀레이션 short · 달러 long', desc: '인플레 재가속 우려' }
+    ],
+    positions: [
+      { tk: 'IEF', dir: 'long', size: '180bp', pnl: +0.34 },
+      { tk: 'TIP', dir: 'long', size: '90bp',  pnl: +0.18 }
+    ]
+  },
+  { id: 'FC-2026-USD', src: 'bw', asserted: '2026-03-28',
+    maturity: { start: '2026-09-01', end: '2026-12-31', center: '2026-11-01' },
+    headline: '달러 약세 트렌드',
+    claim_short: 'DXY 99 이하 진입 — 글로벌 다변화 + Fed pivot',
+    claim_full: '"Bridgewater Daily: 구조적 달러 약세 사이클 진입. 글로벌 중앙은행 외환보유 다변화 + Fed pivot + 미 재정적자 우려 누적."',
+    impact: 4, status: 'tracking', tags: ['FX','MA'],
+    criteria: [
+      { txt: 'DXY <b>99 이하</b> 진입',                  actual: '101.2',  status: 'pending' },
+      { txt: 'EUR/USD <b>1.15 이상</b>',                actual: '1.122',  status: 'pending' },
+      { txt: '글로벌 중앙은행 USD 비중 <b>−2%p 이상</b>', actual: '−0.6%p', status: 'partial' }
+    ],
+    scenarios: [
+      { name: 'A — 구조적 약세',     prob: 0.55, action: 'EM/EU 비중 +200bp · USD short', desc: 'DXY 95-98 박스 진입' },
+      { name: 'B — 박스권 약세',     prob: 0.30, action: '단기 USD short · EM 선별', desc: '99-103 박스권' },
+      { name: 'C — 일시적 강세 회복', prob: 0.15, action: '재진단 · USD 중립', desc: '지정학 리스크 부각' }
+    ],
+    positions: [
+      { tk: 'DXY future', dir: 'short', size: '120bp', pnl: -0.18 },
+      { tk: 'EWG',        dir: 'long',  size: '80bp',  pnl: +0.22 }
+    ]
+  },
+  { id: 'FC-2026-KOSPI', src: 'inhouse', asserted: '2026-04-02',
+    maturity: { start: '2026-10-01', end: '2026-12-31', center: '2026-11-15' },
+    headline: 'KOSPI 4Q26 3,000 돌파',
+    claim_short: 'KOSPI 4Q26 3,000 상회 — 거버넌스 + Fed + 외인',
+    claim_full: '"In-house Desk Macro & KR: KOSPI 4Q26 3,000 돌파. 가치주 디스카운트 해소 + 거버넌스 개혁 가속화 + Fed pivot 따른 외인 자금 유입."',
+    impact: 5, status: 'tracking', tags: ['GR','PR'],
+    criteria: [
+      { txt: 'KOSPI <b>2,950 이상</b> (4Q 평균)',     actual: '2,742',     status: 'pending' },
+      { txt: '외국인 누적 순매수 <b>+8조원 이상</b>',  actual: '+1.2조원',   status: 'pending' },
+      { txt: '거버넌스 법안 <b>3건 이상</b> 통과',     actual: '1건 통과',   status: 'partial' }
+    ],
+    scenarios: [
+      { name: 'A — 3,000 돌파',     prob: 0.45, action: 'KS200 +300bp · 가치주 ETF +200bp', desc: '외인 +12조 + 거버넌스 가속' },
+      { name: 'B — 2,800 박스권',   prob: 0.40, action: '중립 유지 · 종목 선별', desc: '점진적 상승' },
+      { name: 'C — 2,600 하회',     prob: 0.15, action: '비중 축소 · 헤지 강화', desc: '글로벌 리세션 시그널' }
+    ],
+    positions: [
+      { tk: 'KS200',      dir: 'long', size: '250bp', pnl: +1.42 },
+      { tk: 'KODEX 가치', dir: 'long', size: '120bp', pnl: +0.85 }
+    ]
+  },
+  { id: 'FC-2025-INFL', src: 'cho', asserted: '2026-04-08',
+    maturity: { start: '2025-04-01', end: '2025-12-31', center: '2025-09-01' },
+    headline: '한국 인플레 가속 검증',
+    claim_short: '2025 Q2~연말 물가 빠른 상승 — 검증 완료',
+    claim_full: '"2025년 2분기부터 연말까지 한국 소비자물가는 빠르게 상승할 것. 전년동기 유가 급락에 따른 기저효과 + 환율 약세 누적."',
+    impact: 4, status: 'inline', tags: ['MA','CM'],
+    criteria: [
+      { txt: 'KR CPI YoY <b>2.5% 이상</b> (3개월 연속)',  actual: '+2.78%',  status: 'met' },
+      { txt: '근원 CPI <b>2.0% 이상</b>',                actual: '+2.31%',  status: 'met' },
+      { txt: '식료품 제외 CPI 가속 <b>+0.3%p</b>',       actual: '+0.41%p', status: 'met' }
+    ],
+    scenarios: [
+      { name: '검증 완료 — 사후 평가', prob: 1.00, action: '조윤남 신뢰도 +1 · 출처 가중치 상향', desc: '3개 기준 모두 in-line · 시기 정확' }
+    ],
+    positions: [{ tk: 'KR Linker', dir: 'long', size: '180bp', pnl: +0.92 }]
+  },
+  { id: 'FC-2026-CITI', src: 'cs', asserted: '2026-04-30',
+    maturity: { start: '2026-07-15', end: '2026-09-15', center: '2026-08-15' },
+    headline: 'AI Capex 3분기 둔화',
+    claim_short: 'AI Capex 3분기 처음으로 성장 둔화',
+    claim_full: '"Citi Surveys & Quant: 하이퍼스케일러(AWS, Azure, GCP) AI capex 성장률이 3분기에 처음으로 둔화. ROI 압박 + GPU 공급 정상화."',
+    impact: 4, status: 'tracking', tags: ['CE','GR'],
+    criteria: [
+      { txt: 'AWS/Azure/GCP capex YoY <b>+30% 이하</b>', actual: '+38%',   status: 'partial' },
+      { txt: 'NVDA 분기 가이던스 <b>컨센 하회</b>',       actual: '대기',    status: 'pending' },
+      { txt: 'GPU 가격 <b>−10% 이상</b> 하락',           actual: '−4.2%',  status: 'partial' }
+    ],
+    scenarios: [
+      { name: 'A — Capex 급감', prob: 0.35, action: 'NVDA −150bp · 005930 short 확대', desc: 'YoY +20% 이하' },
+      { name: 'B — 점진적 둔화', prob: 0.45, action: 'AI 포지션 중립화', desc: '+25-30%' },
+      { name: 'C — 가속 지속',   prob: 0.20, action: '재진단 · NVDA long 추가', desc: '+40% 이상' }
+    ],
+    positions: [
+      { tk: 'NVDA', dir: 'short', size: '80bp', pnl: -0.18 },
+      { tk: 'SMH',  dir: 'short', size: '60bp', pnl: -0.12 }
+    ]
+  },
+  { id: 'FC-2026-MS-KR', src: 'ms', asserted: '2026-04-18',
+    maturity: { start: '2026-07-01', end: '2026-12-31', center: '2026-09-30' },
+    headline: '한국 EM 대비 outperform',
+    claim_short: '2H26 한국증시 EM 대비 +5%p outperform',
+    claim_full: '"Morgan Stanley KR Strategy: 2H26 한국증시 EM 대비 +5%p outperform. 거버넌스 개혁 + AI 메모리 공급망 수혜 + 원화 강세."',
+    impact: 4, status: 'tracking', tags: ['GR'],
+    criteria: [
+      { txt: 'KOSPI vs MSCI EM <b>+5%p 이상</b>',  actual: '+1.8%p',   status: 'partial' },
+      { txt: '외국인 한국 순매수 <b>+5조원</b>',    actual: '+1.2조원',  status: 'pending' },
+      { txt: 'KRW/USD <b>1,300 이하</b>',          actual: '1,332',     status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 강한 outperform', prob: 0.45, action: 'KR 비중 +250bp · EM ex-KR −150bp', desc: '+8%p 이상 차이' },
+      { name: 'B — 소폭 우위',       prob: 0.40, action: 'KR 비중 +100bp 유지', desc: '+2~5%p' },
+      { name: 'C — 추세 역전',       prob: 0.15, action: '비중 중립화', desc: 'CN 정책 부양 시' }
+    ],
+    positions: [{ tk: 'EWY', dir: 'long', size: '180bp', pnl: +0.48 }]
+  },
+  { id: 'FC-2026-BOK', src: 'bok', asserted: '2026-04-25',
+    maturity: { start: '2026-07-01', end: '2026-09-30', center: '2026-08-15' },
+    headline: '원달러 박스권 유지',
+    claim_short: '원달러 1,300-1,380 박스권 3분기까지 유지',
+    claim_full: '"한국은행 조사국: 원달러 환율은 3분기까지 1,300-1,380 박스권 유지. Fed pivot이 본격 가시화되면 4분기 1,300 하회 가능."',
+    impact: 3, status: 'tracking', tags: ['FX','MA'],
+    criteria: [
+      { txt: 'KRW <b>1,300-1,380 박스</b> 유지',      actual: '1,332', status: 'met' },
+      { txt: 'KRW 변동성 <b>10% 이하</b>',            actual: '8.2%',  status: 'met' },
+      { txt: '4Q 진입 시 <b>1,300 하회 시그널</b>',   actual: '대기',   status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 박스권 유지',        prob: 0.55, action: 'FX 헤지 비중 유지', desc: '3Q 박스권 + 4Q 1,300 하회' },
+      { name: 'B — 박스 하향 이탈',     prob: 0.30, action: 'KRW long · 수출주 비중 축소', desc: '1,300 조기 하회' },
+      { name: 'C — 박스 상향 이탈',     prob: 0.15, action: 'KRW short 헤지 강화', desc: '글로벌 리스크 회피' }
+    ],
+    positions: [{ tk: 'KRW NDF', dir: 'long', size: '60bp', pnl: +0.05 }]
+  },
+  { id: 'FC-2026-0502-A', src: 'dalio', asserted: '2026-05-02',
+    maturity: { start: '2026-05-02', end: '2028-05-02', center: '2027-05-02' },
+    headline: '4-Risk 임계점',
+    claim_short: '미 국채수급, 기술 파괴, 지정학, 세계질서 — 동시 임계점',
+    claim_full: '"네 가지 핵심 리스크 — 미 국채 수급 불균형, AI 기술 파괴, 지정학적 갈등 격화, 세계질서 해체 — 가 향후 24개월 내 동시에 임계점에 도달할 것."',
+    impact: 5, status: 'pending', tags: ['GR','PI','MA'],
+    criteria: [
+      { txt: '美 10년물 발행/수요 mismatch 누적 <b>>15%</b>',     actual: '+11.2%',   status: 'pending' },
+      { txt: 'NATO·BRICS 군사충돌 임박 시그널 <b>≥2건</b>',         actual: '1건 발생', status: 'partial' },
+      { txt: 'AI capex 전년대비 <b>+200% 이상</b> 지속',          actual: '+184%',     status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 점진적 디레버리징', prob: 0.45, action: 'KR 채권/금 비중 +200bp · 美주식 −150bp', desc: '美국채 yield 4.5% 박스권' },
+      { name: 'B — 급성 위기 전환',     prob: 0.30, action: '엔/스위스프랑 헤지 +300bp · VIX call', desc: '단일 트리거 → 동시 매도' },
+      { name: 'C — 지연/희석',         prob: 0.25, action: '현 포지션 유지 · 분기 재평가', desc: '4리스크 중 1-2개만 부분 발현' }
+    ],
+    positions: [
+      { tk: 'KR 10Y',      dir: 'long',  size: '180bp', pnl: +0.42 },
+      { tk: 'GLD',         dir: 'long',  size: '120bp', pnl: +0.78 },
+      { tk: 'SPX·E-mini',  dir: 'short', size: '90bp',  pnl: -0.21 }
+    ]
+  },
+  { id: 'FC-2026-SHIN', src: 'shin', asserted: '2026-04-30',
+    maturity: { start: '2026-07-01', end: '2026-09-30', center: '2026-08-15' },
+    headline: '방어주 로테이션',
+    claim_short: '3분기 한국시장 방어주 로테이션',
+    claim_full: '"신영증권 Strategy: 3분기 한국 시장은 경기민감주 → 방어주 로테이션. 통신·유틸리티·필수소비재 비중 확대 추천."',
+    impact: 3, status: 'tracking', tags: ['GR'],
+    criteria: [
+      { txt: '통신 sector <b>벤치마크 대비 +3% 이상</b>',  actual: '+1.2%', status: 'partial' },
+      { txt: '필수소비재 sector <b>+2% 이상</b>',          actual: '+0.8%', status: 'partial' },
+      { txt: 'KOSPI 베타 <b>0.95 이하</b>',                actual: '1.02',   status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 강한 로테이션', prob: 0.40, action: 'KT/SKT/LGU+ +200bp', desc: '방어주 +6%p outperform' },
+      { name: 'B — 부분 로테이션', prob: 0.45, action: '소폭 비중 조정', desc: '+2~5%p' },
+      { name: 'C — 추세 지속',     prob: 0.15, action: '재진단', desc: '경기민감주 강세 지속' }
+    ],
+    positions: [{ tk: 'KT', dir: 'long', size: '60bp', pnl: +0.08 }]
+  },
+  { id: 'FC-2028-RECN', src: 'cho', asserted: '2026-04-08',
+    maturity: { start: '2028-04-01', end: '2028-08-31', center: '2028-06-15' },
+    headline: '2028 미국 침체',
+    claim_short: '2028년 트럼프 마지막 해 미국 경기침체',
+    claim_full: '"트럼프 임기 마지막 해(2028)에 미국 경기침체. 관세 정책 누적 효과 + 재정 긴축 + 노동시장 균열."',
+    impact: 5, status: 'pending', tags: ['GR','PI'],
+    criteria: [
+      { txt: '美 ISM 제조업 PMI <b>3개월 연속 45 이하</b>',  actual: '대기',    status: 'pending' },
+      { txt: '美 실업률 <b>5.0% 이상</b>',                  actual: '대기',    status: 'pending' },
+      { txt: '관세 누적 GDP 영향 <b>−1.5%p 이상</b>',        actual: '−0.4%p',  status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 클래식 침체', prob: 0.45, action: 'TLT +400bp · SPX −300bp · 달러 cash up', desc: '2개 분기 연속 −GDP' },
+      { name: 'B — 소프트 슬로우다운', prob: 0.35, action: 'Quality 비중 확대', desc: '0~+1% 성장 박스' },
+      { name: 'C — 재정 부양 + 회피', prob: 0.20, action: '인플레 헤지 강화', desc: '대규모 부양으로 회피' }
+    ],
+    positions: [{ tk: 'TLT', dir: 'long', size: '40bp', pnl: +0.05 }]
+  },
+  { id: 'FC-2027-BTC', src: 'woods', asserted: '2026-04-10',
+    maturity: { start: '2027-01-01', end: '2027-12-31', center: '2027-06-30' },
+    headline: 'BTC $250K 도달',
+    claim_short: 'BTC 2027년 말까지 25만달러 도달',
+    claim_full: '"ARK Invest C. Wood: BTC 2027년 말까지 25만달러 도달. 기관 채택 가속 + 4차 halving 효과 + 디지털 골드 내러티브 강화."',
+    impact: 3, status: 'pending', tags: ['MA'],
+    criteria: [
+      { txt: 'BTC ETF 누적 유입 <b>2,500억$ 이상</b>', actual: '+1,820억$',  status: 'partial' },
+      { txt: '미국 기관 BTC 보유 <b>5% 이상</b>',     actual: '2.8%',        status: 'pending' },
+      { txt: 'BTC <b>$150,000 돌파</b>',              actual: '$92,400',     status: 'pending' }
+    ],
+    scenarios: [
+      { name: 'A — 강세 시나리오', prob: 0.30, action: '디지털 자산 비중 +150bp · MSTR long', desc: '기관 자금 +1조 도달' },
+      { name: 'B — $150-200K',     prob: 0.40, action: '비중 중립 유지', desc: '점진적 상승' },
+      { name: 'C — $80-150K',      prob: 0.30, action: '재진단 · 비중 축소', desc: 'ETF 자금 둔화' }
+    ],
+    positions: [{ tk: 'BITO', dir: 'long', size: '60bp', pnl: +0.18 }]
+  }
+];
+
+const SEED_MASTER_CHAIN_IDS = ['FC-2025-INFL','FC-2026-0502-B','FC-2026-FED75','FC-2026-USD','FC-2026-KOSPI'];
+
+const SEED_TODAY_HISTORY = [
+  { time: '13:42', method: 'url',    fcId: 'FC-2026-0502-B' },
+  { time: '11:20', method: 'url',    fcId: 'FC-2026-0502-A' },
+  { time: '09:14', method: 'manual', fcId: 'FC-2026-CITI'   }
+];
+
+const SEED_HISTORY_LOG = [
+  { ts: '2026-05-07T13:42', method: 'url',    fcId: 'FC-2026-0502-B', url: 'jpmorgan.com/insights/global-research/commodities/crude-oil-q2' },
+  { ts: '2026-05-07T11:20', method: 'url',    fcId: 'FC-2026-0502-A', url: 'x.com/RayDalio/status/1795432156' },
+  { ts: '2026-05-07T09:14', method: 'manual', fcId: 'FC-2026-CITI'   },
+  { ts: '2026-05-06T17:08', method: 'upload', fcId: 'FC-2026-FED75'  },
+  { ts: '2026-05-06T14:35', method: 'url',    fcId: 'FC-2026-USD',    url: 'bridgewater.com/research-and-insights/dollar-weakness' },
+  { ts: '2026-05-06T11:02', method: 'url',    fcId: 'FC-2026-MS-KR',  url: 'morganstanley.com/ideas/korea-equity-strategy-2h26' },
+  { ts: '2026-05-06T08:48', method: 'manual', fcId: 'FC-2026-SHIN'   },
+  { ts: '2026-05-05T16:22', method: 'url',    fcId: 'FC-2026-KOSPI',  url: 'hankyung.com/article/2026050556231' },
+  { ts: '2026-05-05T14:11', method: 'upload', fcId: 'FC-2026-005930' },
+  { ts: '2026-05-05T10:45', method: 'url',    fcId: 'FC-2026-BOK',    url: 'bok.or.kr/portal/bbs/B0000232/view.do' },
+  { ts: '2026-05-05T09:02', method: 'manual', fcId: 'FC-2025-INFL'   },
+  { ts: '2026-05-04T15:38', method: 'url',    fcId: 'FC-2027-BTC',    url: 'x.com/CathieDWood/status/1794108457' },
+  { ts: '2026-05-04T12:08', method: 'url',    fcId: 'FC-2028-RECN',   url: 'ft.com/content/recession-trump-final-year-2028' },
+  { ts: '2026-05-04T10:22', method: 'upload', fcId: 'FC-2026-CITI'   },
+  { ts: '2026-05-03T16:50', method: 'url',    fcId: 'FC-2026-USD',    url: 'bloomberg.com/news/articles/2026-05-03/dollar-decline' },
+  { ts: '2026-05-03T13:18', method: 'manual', fcId: 'FC-2026-FED75'  },
+  { ts: '2026-05-03T09:42', method: 'url',    fcId: 'FC-2026-0502-B', url: 'eia.gov/petroleum/weekly' }
+];
+
+const VERIF_RESULTS = [
+  { src: 'cho',     headline: '2025 한국 인플레 가속',    verdict: 'in',      summary: '3개 기준 모두 in-line · 시기 정확.', lesson: '유가 기저효과를 한국 CPI에 적용한 인사이트가 정확. 거시 기저효과 → 로컬 inflation 메커니즘 신뢰 가능.', impact: '+ 0.92%' },
+  { src: 'jpm',     headline: '미국 ISM 제조업 50 회복',  verdict: 'in',      summary: 'ISM 50.4 도달, 시기 정확.', lesson: '제조업 사이클 turnaround call이 정확. JPM cross-asset의 cyclicals 모델 신뢰도 +1.', impact: '+ 0.34%' },
+  { src: 'inhouse', headline: 'KOSPI 2,800 1Q26 돌파',     verdict: 'in',      summary: '1Q26 평균 2,824 · 외인 +3.2조원.', lesson: '거버넌스 + 환율 동시 모델링이 정확. 자체 desk의 KR 매크로 모델 우수.', impact: '+ 1.84%' },
+  { src: 'gs',      headline: 'Fed 3월 25bp 인하',          verdict: 'partial', summary: '인하 발생, 시기 1개월 지연.', lesson: '방향은 맞췄으나 속도가 늦음. GS 매크로의 FOMC 타이밍 정확도는 제한적.', impact: '+ 0.18%' },
+  { src: 'ms',      headline: '한국 IT 1Q outperform',      verdict: 'partial', summary: '+ 2.1%p outperform vs 예상 +5%p.', lesson: 'AI 수혜 thesis 부분 발현. 외인 자금 인입 속도가 컨센서스 대비 둔화.', impact: '+ 0.42%' },
+  { src: 'bw',      headline: '구조적 약달러 진입 (2025)',  verdict: 'off',     summary: 'DXY 100 박스권 유지, 약세 미발현.', lesson: 'Fed 매파적 스탠스 지속 + EU 약세로 expected 다변화 불발. Bridgewater의 정책 sequencing 가정 부정확.', impact: '− 0.62%' },
+  { src: 'woods',   headline: 'BTC $120K 2025말 도달',      verdict: 'off',     summary: '연말 $92K 마감, 30% 미달.', lesson: 'ETF 자금 모멘텀 over-estimate. ARK의 디지털 자산 가속 가정 보수적으로 조정.', impact: '− 0.21%' },
+  { src: 'dalio',   headline: '2025 디레버리징 사이클',     verdict: 'off',     summary: '디레버리징 시그널 미발생, 자산가격 상승.', lesson: 'AI 부양 효과 + 재정 부양으로 디레버리징 지연. Dalio 매크로 사이클 모델 트리거 시점 부정확.', impact: '− 0.38%' }
+];
+
+const NOTIFICATIONS = [
+  { unread: true,  meta: 'ACT NOW · MASTER CHAIN', msg: '<b>JP Morgan 원유 재고 전망</b>이 14일 이내 만기 — Master Chain Node 2 · 검증 기준 1/3 met', ago: '2 min' },
+  { unread: true,  meta: 'CONVERGENCE 30D',         msg: '6월 1일 <b>Oil · Inflation · Fed</b> 3개 카테고리에서 4개 forecast 동시 만기 — 사전 포지셔닝 권고', ago: '14 min' },
+  { unread: true,  meta: 'NEW INTAKE',              msg: '<b>Citi AI Capex 둔화 전망</b> manual 입력됨 — Eventology 자동 태깅 CE · GR 완료', ago: '46 min' },
+  { unread: false, meta: 'VERIFIED',                msg: '<b>조윤남 2025 한국 인플레 가속</b> verified IN-LINE — 출처 점수 +1 (74 → 75)', ago: '3 hr' },
+  { unread: false, meta: 'INTAKE · URL',            msg: 'Ray Dalio LinkedIn 새 글 자동 추출 — Confidence 92%, Drafts 큐에 추가됨', ago: '4 hr' },
+  { unread: false, meta: 'CHAIN COHERENCE',         msg: 'Master Thesis Chain coherence <b>100% 유지</b> — 5개 노드 모두 in-line/tracking', ago: '6 hr' },
+  { unread: false, meta: 'POSITION',                msg: 'XOM long 150bp 진입 완료 — JP Morgan 원유 전망 시나리오 A 대응', ago: '1d' },
+  { unread: false, meta: 'OFF-TARGET',              msg: '<b>Bridgewater 약달러 2025</b> off-target verified — 출처 점수 −1, 사슬 영향도 점검 필요', ago: '1d' },
+  { unread: false, meta: 'INTAKE · UPLOAD',         msg: 'Goldman Sachs Q3 outlook PDF 업로드 — 12개 forecast 자동 추출, 검토 대기 3건', ago: '2d' },
+  { unread: false, meta: 'BACKUP',                  msg: '데이터 백업 정상 완료 — 03:00 KST · S3 + Local SSD', ago: '3d' },
+  { unread: false, meta: 'SCORE UPDATE',            msg: '월간 출처별 leaderboard 갱신 — 조윤남 #1, In-house Desk #2, MS #3', ago: '4d' },
+  { unread: false, meta: 'TEAM',                    msg: 'Macro 팀에 신규 분석가 1명 합류 — 인박스 협업 권한 부여됨', ago: '5d' }
+];
+
+const POSITIONS_FULL = [
+  { tk: 'XOM',          dir: 'long',  fc: 'FC-2026-0502-B', linked: 'JPM 원유 재고 감소', size: '150bp', pnl: +1.24 },
+  { tk: 'WTI Q3 future',dir: 'long',  fc: 'FC-2026-0502-B', linked: 'JPM 원유 재고 감소', size: '200bp', pnl: +0.88 },
+  { tk: 'KAL/AAL',      dir: 'short', fc: 'FC-2026-0502-B', linked: 'JPM 원유 재고 감소', size: '80bp',  pnl: -0.32 },
+  { tk: '005930',       dir: 'short', fc: 'FC-2026-005930',linked: '조윤남 삼성전자 약세',size: '120bp', pnl: -0.15 },
+  { tk: 'SK hynix',     dir: 'short', fc: 'FC-2026-005930',linked: '조윤남 삼성전자 약세',size: '60bp',  pnl: -0.08 },
+  { tk: 'IEF',          dir: 'long',  fc: 'FC-2026-FED75', linked: 'GS Fed 75bp 인하',   size: '180bp', pnl: +0.34 },
+  { tk: 'TIP',          dir: 'long',  fc: 'FC-2026-FED75', linked: 'GS Fed 75bp 인하',   size: '90bp',  pnl: +0.18 },
+  { tk: 'DXY future',   dir: 'short', fc: 'FC-2026-USD',   linked: 'BW 달러 약세',       size: '120bp', pnl: -0.18 },
+  { tk: 'EWG',          dir: 'long',  fc: 'FC-2026-USD',   linked: 'BW 달러 약세',       size: '80bp',  pnl: +0.22 },
+  { tk: 'KS200',        dir: 'long',  fc: 'FC-2026-KOSPI', linked: 'KOSPI 3,000',       size: '250bp', pnl: +1.42 },
+  { tk: 'KODEX 가치',   dir: 'long',  fc: 'FC-2026-KOSPI', linked: 'KOSPI 3,000',       size: '120bp', pnl: +0.85 },
+  { tk: 'NVDA',         dir: 'short', fc: 'FC-2026-CITI',  linked: 'Citi AI Capex 둔화', size: '80bp',  pnl: -0.18 },
+  { tk: 'SMH',          dir: 'short', fc: 'FC-2026-CITI',  linked: 'Citi AI Capex 둔화', size: '60bp',  pnl: -0.12 },
+  { tk: 'EWY',          dir: 'long',  fc: 'FC-2026-MS-KR', linked: 'MS 한국 outperform', size: '180bp', pnl: +0.48 },
+  { tk: 'KR 10Y',       dir: 'long',  fc: 'FC-2026-0502-A',linked: 'Dalio 4-Risk',       size: '180bp', pnl: +0.42 },
+  { tk: 'GLD',          dir: 'long',  fc: 'FC-2026-0502-A',linked: 'Dalio 4-Risk',       size: '120bp', pnl: +0.78 },
+  { tk: 'SPX·E-mini',   dir: 'short', fc: 'FC-2026-0502-A',linked: 'Dalio 4-Risk',       size: '90bp',  pnl: -0.21 }
+];
+
+/* ======================================================================
+   STORE LAYER · localStorage persistence
+   ====================================================================== */
+const STORE_KEY     = 's2c_v1';
+const SEED_FLAG_KEY = 's2c_seeded_v1';
+
+const Store = {
+  load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error('Store load failed:', e);
+      return null;
+    }
+  },
+  save(state) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      return true;
+    } catch (e) {
+      console.error('Store save failed:', e);
+      return false;
+    }
+  },
+  clear() {
+    localStorage.removeItem(STORE_KEY);
+    localStorage.removeItem(SEED_FLAG_KEY);
+  },
+  isSeeded() {
+    return localStorage.getItem(SEED_FLAG_KEY) === '1';
+  },
+  markSeeded() {
+    localStorage.setItem(SEED_FLAG_KEY, '1');
+  }
+};
+
+function buildSeedState() {
+  return {
+    forecasts: JSON.parse(JSON.stringify(SEED_FORECASTS)),
+    sources:   JSON.parse(JSON.stringify(SEED_SOURCES)),
+    chain_ids: SEED_MASTER_CHAIN_IDS.slice(),
+    history:   JSON.parse(JSON.stringify(SEED_HISTORY_LOG)),
+    today:     JSON.parse(JSON.stringify(SEED_TODAY_HISTORY))
+  };
+}
+
+function loadOrSeedState() {
+  let state = Store.load();
+  if (!state || !Store.isSeeded()) {
+    state = buildSeedState();
+    Store.save(state);
+    Store.markSeeded();
+  }
+  return state;
+}
+
+/* mutable state — these names are used everywhere downstream */
+let APP_STATE = loadOrSeedState();
+let FORECASTS = APP_STATE.forecasts;
+let SOURCES   = APP_STATE.sources;
+let MASTER_CHAIN_IDS = APP_STATE.chain_ids;
+let HISTORY_LOG = APP_STATE.history;
+let TODAY_HISTORY = APP_STATE.today;
+
+function persist() {
+  APP_STATE.forecasts = FORECASTS;
+  APP_STATE.sources   = SOURCES;
+  APP_STATE.chain_ids = MASTER_CHAIN_IDS;
+  APP_STATE.history   = HISTORY_LOG;
+  APP_STATE.today     = TODAY_HISTORY;
+  Store.save(APP_STATE);
+}
+
+function refreshAll() {
+  // Force every page to re-render with new state on next navigation
+  calRendered = false;
+  // Re-render currently active page
+  const active = document.querySelector('.page.active');
+  if (!active) return;
+  const route = active.id.replace('page-', '');
+  if (route === 'dashboard') {
+    renderActionCards();
+    renderMonthCalendar();
+    renderTodayHistory();
+    renderChain();
+  } else if (route === 'inbox') {
+    renderInbox();
+  } else if (route === 'calendar') {
+    calRendered = false;
+    renderFullCalendar();
+  } else if (route === 'scenarios') {
+    renderScenarios();
+  } else if (route === 'history') {
+    renderHistory();
+  } else if (route === 'sources') {
+    renderSources();
+  }
+}
+
+function generateFcId(prefix) {
+  prefix = prefix || 'FC';
+  const ts = Date.now().toString(36).toUpperCase().slice(-6);
+  return `${prefix}-${ts}`;
+}
+
+function addForecast(fc, historyEntry) {
+  if (!fc.id) fc.id = generateFcId('FC');
+  // Ensure required arrays exist
+  fc.criteria = fc.criteria || [];
+  fc.scenarios = fc.scenarios || [];
+  fc.positions = fc.positions || [];
+  fc.tags = fc.tags || [];
+  fc.impact = fc.impact || 3;
+  fc.status = fc.status || 'pending';
+  FORECASTS.unshift(fc);
+
+  if (historyEntry) {
+    historyEntry.fcId = fc.id;
+    HISTORY_LOG.unshift(historyEntry);
+    // If today, also add to today's quick list
+    if (historyEntry.ts.slice(0, 10) === '2026-05-07') {
+      TODAY_HISTORY.unshift({
+        time: historyEntry.ts.slice(11, 16),
+        method: historyEntry.method,
+        fcId: fc.id
+      });
+      if (TODAY_HISTORY.length > 8) TODAY_HISTORY.length = 8;
+    }
+  }
+
+  persist();
+  flash(`인박스에 추가됨 · ${fc.id}`);
+}
+
+function updateForecast(id, patch) {
+  const idx = FORECASTS.findIndex(f => f.id === id);
+  if (idx < 0) return false;
+  FORECASTS[idx] = { ...FORECASTS[idx], ...patch };
+  persist();
+  return true;
+}
+
+function deleteForecast(id) {
+  FORECASTS = APP_STATE.forecasts = APP_STATE.forecasts.filter(f => f.id !== id);
+  HISTORY_LOG = APP_STATE.history = APP_STATE.history.filter(h => h.fcId !== id);
+  TODAY_HISTORY = APP_STATE.today = APP_STATE.today.filter(h => h.fcId !== id);
+  MASTER_CHAIN_IDS = APP_STATE.chain_ids = APP_STATE.chain_ids.filter(x => x !== id);
+  Store.save(APP_STATE);
+  flash(`삭제됨 · ${id}`);
+}
+
+function resetToSeed() {
+  Store.clear();
+  APP_STATE = loadOrSeedState();
+  FORECASTS = APP_STATE.forecasts;
+  SOURCES   = APP_STATE.sources;
+  MASTER_CHAIN_IDS = APP_STATE.chain_ids;
+  HISTORY_LOG = APP_STATE.history;
+  TODAY_HISTORY = APP_STATE.today;
+}
+
+function clearAll() {
+  Store.clear();
+  APP_STATE = {
+    forecasts: [],
+    sources:   JSON.parse(JSON.stringify(SEED_SOURCES)),
+    chain_ids: [],
+    history:   [],
+    today:     []
+  };
+  FORECASTS = APP_STATE.forecasts;
+  SOURCES   = APP_STATE.sources;
+  MASTER_CHAIN_IDS = APP_STATE.chain_ids;
+  HISTORY_LOG = APP_STATE.history;
+  TODAY_HISTORY = APP_STATE.today;
+  Store.save(APP_STATE);
+  Store.markSeeded(); // prevent auto-reseed
+}
+
+/* ===== HELPERS ===== */
+function actionState(fc) {
+  const days = daysToMaturity(fc);
+  if (fc.status === 'inline') return { label: 'Verified',  cls: 'verified' };
+  if (fc.status === 'off')    return { label: 'Off',       cls: 'off' };
+  if (days < 0)               return { label: 'Overdue',   cls: 'overdue' };
+  if (days <= 14)             return { label: 'Act Now',   cls: 'act' };
+  if (days <= 60)             return { label: 'Prepare',   cls: 'prep' };
+  return                              { label: 'Watch',    cls: 'watch' };
+}
+function maturityLabel(d) {
+  if (d < 0) return Math.abs(d) + '일 경과';
+  if (d <= 30) return d + '일';
+  if (d <= 365) return Math.round(d/30) + '개월';
+  return (d/365).toFixed(1) + '년';
+}
+function impactBars(n) {
+  let s = '';
+  for (let i = 0; i < 5; i++) s += `<i class="${i < n ? 'on' : ''}"></i>`;
+  return `<span class="impact-bars">${s}</span>`;
+}
+
+/* ===== ROUTING ===== */
+const ROUTES = {
+  dashboard:    { title: '대시보드 <em>· 오늘</em>',           sub: '2026년 5월 7일 목요일 · Live',                  intake: true },
+  inbox:        { title: '전망 <em>인박스</em>',               sub: '13개 forecast · 만기 임박순 정렬',              intake: false },
+  calendar:     { title: '전망 <em>캘린더</em>',               sub: '2026.05 → 2028.12 · 32개월 horizon',            intake: false },
+  scenarios:    { title: '시나리오 <em>맵</em>',               sub: 'Master Thesis Chain · 인과 사슬 시각화',         intake: false },
+  history:      { title: '히스토리 <em>· 인입 로그</em>',      sub: '47건 누적 · 14일 · 일평균 3.4건',               intake: false },
+  sources:      { title: '전망자 <em>점수</em>',               sub: '11명 · 방향 / 타이밍 / Composite',              intake: false },
+  verification: { title: '검증 <em>결과</em>',                  sub: '12개월 누적 · 17 in-line · 8 partial · 4 off',   intake: false },
+  positions:    { title: '포지션 <em>매핑</em>',               sub: 'Forecast → Ticker · book 73.4% 연결',           intake: false },
+  settings:     { title: '설정',                                sub: 'Profile · Intake · Alerts · Data',              intake: false },
+  notifications:{ title: '알림',                                sub: '12 total · 3 unread',                           intake: false }
+};
+
+function navigate(route) {
+  if (!ROUTES[route]) route = 'dashboard';
+  const config = ROUTES[route];
+  document.getElementById('page-title').innerHTML = config.title;
+  document.getElementById('page-sub').textContent = config.sub;
+  document.getElementById('intake').classList.toggle('show', config.intake);
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${route}`).classList.add('active');
+  document.querySelectorAll('.sb-nav a').forEach(a => a.classList.toggle('active', a.dataset.route === route));
+  document.querySelector('.page-body').scrollTop = 0;
+
+  switch (route) {
+    case 'dashboard':
+      renderActionCards();
+      renderMonthCalendar();
+      renderTodayHistory();
+      renderChain();
+      break;
+    case 'inbox':         renderInbox(); break;
+    case 'calendar':      renderFullCalendar(); break;
+    case 'scenarios':     renderScenarios(); break;
+    case 'history':       renderHistory(); break;
+    case 'sources':       renderSources(); break;
+    case 'verification':  renderVerification(); break;
+    case 'positions':     renderPositions(); break;
+    case 'notifications': renderNotifications(); break;
+    case 'settings':      renderSettings(); break;
+  }
+}
+
+function renderSettings() {
+  const stats = document.getElementById('set-stats');
+  if (stats) {
+    const fcCount = FORECASTS.length;
+    const histCount = HISTORY_LOG.length;
+    const sizeKB = (new Blob([JSON.stringify(APP_STATE)]).size / 1024).toFixed(1);
+    stats.innerHTML = `<b style="color:var(--brass-deep);font-weight:700">${fcCount}건 forecast</b> · <b style="color:var(--brass-deep);font-weight:700">${histCount}건 history</b> · ${sizeKB} KB`;
+  }
+  const exportBtn = document.getElementById('set-export');
+  if (exportBtn && !exportBtn.dataset.bound) {
+    exportBtn.dataset.bound = '1';
+    exportBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(APP_STATE, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `StrategyToCalendar_export_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      flash('JSON 내보내기 완료');
+    });
+  }
+  const reseedBtn = document.getElementById('set-reseed');
+  if (reseedBtn && !reseedBtn.dataset.bound) {
+    reseedBtn.dataset.bound = '1';
+    reseedBtn.addEventListener('click', () => {
+      if (confirm('현재 데이터를 모두 삭제하고 데모 시드 데이터로 재설정합니다. 계속할까요?')) {
+        resetToSeed();
+        flash('데모 데이터로 재설정됨');
+        navigate('dashboard');
+        document.querySelectorAll('.sb-nav a[data-route="inbox"] .badge').forEach(b => b.textContent = FORECASTS.length);
+        document.querySelectorAll('.sb-nav a[data-route="history"] .badge').forEach(b => b.textContent = HISTORY_LOG.length);
+      }
+    });
+  }
+  const clearBtn = document.getElementById('set-clear');
+  if (clearBtn && !clearBtn.dataset.bound) {
+    clearBtn.dataset.bound = '1';
+    clearBtn.addEventListener('click', () => {
+      if (confirm('정말 모든 forecast와 히스토리를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.\n빈 인박스에서 다시 시작하게 됩니다.')) {
+        clearAll();
+        flash('전체 삭제됨');
+        navigate('dashboard');
+        document.querySelectorAll('.sb-nav a[data-route="inbox"] .badge').forEach(b => b.textContent = FORECASTS.length);
+        document.querySelectorAll('.sb-nav a[data-route="history"] .badge').forEach(b => b.textContent = HISTORY_LOG.length);
+      }
+    });
+  }
+}
+
+/* ===== DASHBOARD ===== */
+function renderActionCards() {
+  const ranked = FORECASTS
+    .filter(f => f.status === 'tracking' || f.status === 'pending')
+    .map(f => {
+      const days = daysToMaturity(f);
+      const act = actionState(f);
+      let priority = 0;
+      if (act.cls === 'act') priority = 1000 - days;
+      else if (act.cls === 'prep') priority = 500 - days;
+      else priority = -days/100 + f.impact * 5;
+      return { f, days, act, priority };
+    })
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 3);
+
+  const grid = document.getElementById('action-grid');
+  if (ranked.length === 0) {
+    grid.innerHTML = `<div class="action-empty">
+      <div class="ae-title">우선순위 큐가 비어 있습니다</div>
+      <div class="ae-desc">상단 Capture 바를 통해 새 forecast를 추가하시면 만기 임박순으로 자동 정렬됩니다.</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = ranked.map(({ f, days, act }) => {
+    const src = SOURCES[f.src];
+    const tag = f.tags[0];
+    const e = EVENTOLOGY[tag] || { hue: 215, name: '' };
+    return `
+      <div class="action-card ${act.cls}" data-fc="${f.id}">
+        <div class="ac-head">
+          <span class="ac-state">${act.label}</span>
+          <span class="ac-days">${maturityLabel(days)}</span>
+        </div>
+        <div class="ac-claim">${f.claim_short}</div>
+        <div class="ac-foot">
+          <span class="ac-src">${src.name}<span class="org">${src.org}</span></span>
+          <span class="ac-tag" style="--ev-h:${e.hue}">${tag} · ${e.name}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderMonthCalendar() {
+  const grid = document.getElementById('mc-grid');
+  const year = 2026, month = 4;
+  const first = new Date(year, month, 1);
+  const last  = new Date(year, month + 1, 0);
+  const startDay = first.getDay();
+  const daysInMonth = last.getDate();
+
+  let html = ['일','월','화','수','목','금','토'].map((wd, i) =>
+    `<div class="mc-wd ${i === 0 || i === 6 ? 'weekend' : ''}">${wd}</div>`).join('');
+
+  const eventsByDay = {};
+  FORECASTS.forEach(f => {
+    const c = new Date(f.maturity.center);
+    if (c.getFullYear() === year && c.getMonth() === month) {
+      const d = c.getDate();
+      if (!eventsByDay[d]) eventsByDay[d] = [];
+      eventsByDay[d].push({ f, act: actionState(f) });
+    }
+  });
+  if (!eventsByDay[2])  eventsByDay[2]  = [];
+  eventsByDay[2].push({ f: { id: 'FC-2026-0502-A', claim_short: '미 국채수급, 기술, 지정학...' }, act: { cls: 'watch' } });
+  if (!eventsByDay[12]) eventsByDay[12] = [];
+  eventsByDay[12].push({ f: { id: 'EV-FOMC',  claim_short: 'FOMC 경계' },  act: { cls: 'watch' } });
+  if (!eventsByDay[14]) eventsByDay[14] = [];
+  eventsByDay[14].push({ f: { id: 'EV-CHECK', claim_short: '매도·헤지 점검' }, act: { cls: 'act' } });
+
+  const prevLast = new Date(year, month, 0).getDate();
+  for (let i = startDay - 1; i >= 0; i--) {
+    html += `<div class="mc-day faded"><div class="num">${prevLast - i}</div></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    const wd = dt.getDay();
+    const cls = ['mc-day'];
+    if (wd === 0 || wd === 6) cls.push('weekend');
+    if (d === 7) cls.push('today');
+    const evs = eventsByDay[d] || [];
+    const evHtml = evs.slice(0, 2).map(e =>
+      `<div class="mc-event ${e.act.cls}">${e.f.claim_short.length > 14 ? e.f.claim_short.slice(0,14)+'…' : e.f.claim_short}</div>`).join('');
+    const more = evs.length > 2 ? `<div class="mc-event" style="background:transparent;border-left:none;color:var(--ink-mute);padding-left:0">+${evs.length-2}</div>` : '';
+    html += `<div class="${cls.join(' ')}"><div class="num">${d}</div>${evHtml}${more}</div>`;
+  }
+  const filled = startDay + daysInMonth;
+  const tail = (Math.ceil(filled / 7) * 7) - filled;
+  for (let d = 1; d <= tail; d++) {
+    html += `<div class="mc-day faded"><div class="num">${d}</div></div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function renderTodayHistory() {
+  const list = document.getElementById('hist-mini');
+  list.innerHTML = TODAY_HISTORY.map(h => {
+    const f = FORECASTS.find(x => x.id === h.fcId);
+    if (!f) return '';
+    const src = SOURCES[f.src];
+    const methodLabel = h.method === 'url' ? '⇗ URL' : h.method === 'upload' ? '↥ FILE' : '✎ MANUAL';
+    return `
+      <div class="item" data-fc="${f.id}">
+        <div class="meta">
+          <span class="time">${h.time}</span>
+          <span class="method ${h.method}">${methodLabel}</span>
+        </div>
+        <div class="claim">${f.claim_short}</div>
+        <div class="src">${src.name}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderChain() {
+  const flow = document.getElementById('chain-flow');
+  const chainFcs = MASTER_CHAIN_IDS.map(id => FORECASTS.find(f => f.id === id)).filter(Boolean);
+
+  if (chainFcs.length === 0) {
+    flow.innerHTML = `<div class="action-empty" style="grid-column:1/-1">
+      <div class="ae-title">Master Thesis Chain이 비어 있습니다</div>
+      <div class="ae-desc">forecast를 추가한 뒤 시나리오 맵에서 인과 사슬을 구성하실 수 있습니다.</div>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+  chainFcs.forEach((fc, i) => {
+    const src = SOURCES[fc.src];
+    const days = daysToMaturity(fc);
+    const tag = (fc.tags || [])[0];
+    const tagHue = tag ? EVENTOLOGY[tag].hue : 215;
+
+    let daysLabel, daysClass = '';
+    if (fc.status === 'inline')      { daysLabel = 'VERIFIED ✓'; daysClass = 'verified'; }
+    else if (fc.status === 'off')    { daysLabel = 'OFF';        daysClass = 'off'; }
+    else if (days < 0)               { daysLabel = `${Math.abs(days)}D AGO`; daysClass = 'verified'; }
+    else if (days <= 60)             { daysLabel = `${days}D · ACT`; daysClass = 'imminent'; }
+    else                             { daysLabel = `${days}D`; }
+
+    html += `
+      <div class="chain-node s-${fc.status}" data-fc="${fc.id}">
+        <div class="cn-top">
+          <span class="cn-src">${src.name}</span>
+          ${tag ? `<span class="cn-tag" style="--ev-h:${tagHue}">${tag}</span>` : ''}
+        </div>
+        <div class="cn-claim">${fc.claim_short}</div>
+        <div class="cn-foot">
+          <span class="cn-stat">${fc.status}</span>
+          <span class="cn-days ${daysClass}">${daysLabel}</span>
+        </div>
+      </div>`;
+    if (i < chainFcs.length - 1) html += `<div class="chain-arrow"></div>`;
+  });
+  flow.innerHTML = html;
+}
+
+/* ===== INBOX ===== */
+let inboxFilter = 'all';
+let selectedId = null;
+
+function renderInbox() {
+  const list = document.getElementById('inbox-list');
+
+  // Update filter chip counts dynamically
+  const counts = {
+    all:      FORECASTS.length,
+    tracking: FORECASTS.filter(f => f.status === 'tracking').length,
+    pending:  FORECASTS.filter(f => f.status === 'pending').length,
+    inline:   FORECASTS.filter(f => f.status === 'inline').length,
+    off:      FORECASTS.filter(f => f.status === 'off').length
+  };
+  document.querySelectorAll('#inbox-filters .chip').forEach(chip => {
+    const f = chip.dataset.f;
+    const labelMap = { all: 'All', tracking: 'Tracking', pending: 'Pending', inline: 'In-line', off: 'Off' };
+    if (counts[f] !== undefined) chip.textContent = `${labelMap[f]} · ${counts[f]}`;
+  });
+
+  // Update subtitle if currently on inbox page
+  const subtitleEl = document.getElementById('page-sub');
+  if (subtitleEl && document.getElementById('page-inbox').classList.contains('active')) {
+    subtitleEl.textContent = `${FORECASTS.length}개 forecast · 만기 임박순 정렬`;
+  }
+
+  let items = FORECASTS.slice();
+  if (inboxFilter !== 'all') items = items.filter(f => f.status === inboxFilter);
+  items.sort((a, b) => Math.abs(daysToMaturity(a)) - Math.abs(daysToMaturity(b)));
+
+  list.innerHTML = items.map(fc => {
+    const src = SOURCES[fc.src];
+    const days = daysToMaturity(fc);
+    const matCls = days < 0 ? 'past' : days <= 60 ? 'imminent' : '';
+    const act = actionState(fc);
+    const tags = (fc.tags || []).map(t => {
+      const e = EVENTOLOGY[t];
+      return `<span class="ev-chip" style="--ev-h:${e.hue}">${t}</span>`;
+    }).join(' ');
+    return `
+      <div class="fc-card ${selectedId === fc.id ? 'active' : ''}" data-fc="${fc.id}">
+        <div class="fc-r1">
+          <span class="src">${src.name}<span class="org">· ${src.org}</span></span>
+          <span class="matur ${matCls}">${maturityLabel(days)}</span>
+        </div>
+        <div class="fc-claim">${fc.claim_short}</div>
+        <div class="fc-r3">
+          <span class="action-pill action-${act.cls}">${act.label}</span>
+          ${tags}
+          ${impactBars(fc.impact)}
+        </div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('.fc-card').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedId = el.dataset.fc;
+      renderInbox();
+    });
+  });
+
+  renderDossier();
+}
+
+function renderDossier() {
+  const el = document.getElementById('dossier');
+  if (!selectedId) {
+    el.innerHTML = `
+      <div class="dossier-empty">
+        <div class="glyph">§</div>
+        <p>좌측 인박스에서 전망을 선택하면<br>사후검증 기준, 시나리오 분기,<br>사전포지셔닝이 표시됩니다.</p>
+      </div>`;
+    return;
+  }
+  const fc = FORECASTS.find(f => f.id === selectedId);
+  if (!fc) return;
+  const src = SOURCES[fc.src];
+  const days = daysToMaturity(fc);
+
+  const aDate = new Date(fc.asserted);
+  const sDate = new Date(fc.maturity.start);
+  const eDate = new Date(fc.maturity.end);
+  const cDate = new Date(fc.maturity.center);
+  const span = Math.max(dayDiff(aDate, eDate), 60);
+  const padded = span * 1.18;
+  const padL = span * 0.05;
+  const fpos = d => ((dayDiff(aDate, d) + padL) / padded) * 100;
+  const tlClamp = p => Math.max(2, Math.min(98, p));
+  const todayInRange = TODAY >= aDate && TODAY <= eDate;
+  const todayPos = todayInRange ? fpos(TODAY) : (TODAY < aDate ? 1 : 99);
+
+  const critHtml = fc.criteria.map(c => {
+    const cls = c.status === 'met' ? 'met' : c.status === 'partial' ? '' : c.status === 'pending' ? '' : 'miss';
+    return `<div class="crit ${cls}">
+      <div class="box"></div>
+      <div class="text">${c.txt}</div>
+      <div class="actual">${c.actual}</div>
+    </div>`;
+  }).join('');
+
+  const scenHtml = fc.scenarios.map(s => `
+    <div class="scen">
+      <div class="prob">${(s.prob*100).toFixed(0)}<small>% prob</small></div>
+      <div class="body">
+        <div class="nm">${s.name}</div>
+        <div class="desc">${s.desc}</div>
+        <div class="action"><b>Action ▸</b> ${s.action}</div>
+      </div>
+    </div>`).join('');
+
+  const posHtml = fc.positions && fc.positions.length ? `
+    <table class="pos-table">
+      <thead><tr><th>Ticker</th><th>Direction</th><th class="num">Size</th><th class="num">P&L</th></tr></thead>
+      <tbody>${fc.positions.map(p => `
+        <tr>
+          <td class="tk">${p.tk}</td>
+          <td class="dir ${p.dir}">${p.dir}</td>
+          <td class="num">${p.size}</td>
+          <td class="num pnl ${p.pnl >= 0 ? 'up' : 'down'}">${p.pnl >= 0 ? '+' : ''}${p.pnl.toFixed(2)}%</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : '<p style="font-family:var(--serif);font-style:italic;color:var(--ink-dim)">관련 포지션 없음</p>';
+
+  const tagHtml = (fc.tags || []).map(t => {
+    const e = EVENTOLOGY[t];
+    return `<span class="ev-chip" style="--ev-h:${e.hue}; font-size: 11px; padding: 4px 10px">${t} · ${e.name}</span>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="dos-head">
+      <div class="dos-crumb">
+        <span>${fc.id}</span>
+        <span class="status-pill ${fc.status}">${fc.status}</span>
+      </div>
+      <h2>${fc.headline}</h2>
+      <div class="dos-tags">${tagHtml}</div>
+      <div class="dos-source">
+        <span><b>${src.name}</b><em>${src.org}</em></span>
+        <span class="when">발화 ${fmtDate(fc.asserted)}</span>
+      </div>
+    </div>
+
+    <div class="dos-section">
+      <h4><span class="num">01</span>Verification Window</h4>
+      <div class="tl-track">
+        <div class="tl-axis"></div>
+        <div class="tl-window" style="left:${tlClamp(fpos(sDate))}%; width:${fpos(eDate)-fpos(sDate)}%"></div>
+        <div class="tl-marker asserted" style="left:${tlClamp(fpos(aDate))}%">
+          <div class="dot"></div><label>Asserted<br>${fmtDate(fc.asserted).slice(2)}</label>
+        </div>
+        <div class="tl-marker today" style="left:${tlClamp(todayPos)}%">
+          <div class="dot"></div><label>Today<br>2026.05.07</label>
+        </div>
+        <div class="tl-marker maturity" style="left:${tlClamp(fpos(cDate))}%">
+          <div class="dot"></div><label>Maturity<br>${fmtDate(fc.maturity.center).slice(2)}</label>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-family:var(--mono); font-size:12px; font-weight:600; color:var(--ink-dim); margin-top:10px;">
+        <span>Window <b style="color:var(--brass-deep);font-weight:700">${fmtDate(fc.maturity.start)} → ${fmtDate(fc.maturity.end)}</b></span>
+        <span style="color:var(--brass-deep); font-weight:700">${days < 0 ? Math.abs(days) + '일 경과' : days + '일 후 검증'}</span>
+      </div>
+    </div>
+
+    <div class="dos-section">
+      <h4><span class="num">02</span>Claim · Full Text</h4>
+      <p class="body">${fc.claim_full}</p>
+    </div>
+
+    <div class="dos-section">
+      <h4><span class="num">03</span>Verification Criteria</h4>
+      <div class="crit-list">${critHtml}</div>
+    </div>
+
+    <div class="dos-section">
+      <h4><span class="num">04</span>Scenario Branching</h4>
+      <div class="scenarios">${scenHtml}</div>
+    </div>
+
+    <div class="dos-section">
+      <h4><span class="num">05</span>Linked Book Positions</h4>
+      ${posHtml}
+    </div>
+
+    <div class="dos-section">
+      <h4><span class="num">06</span>Edit / Delete</h4>
+      <div class="dos-actions">
+        <button class="btn secondary" id="dos-edit">편집</button>
+        <button class="btn secondary" id="dos-toggle-status">상태 변경</button>
+        <button class="btn danger" id="dos-delete">삭제</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('dos-edit').addEventListener('click', () => {
+    openEditModal(fc);
+  });
+  document.getElementById('dos-toggle-status').addEventListener('click', () => {
+    const order = ['pending', 'tracking', 'inline', 'off'];
+    const next = order[(order.indexOf(fc.status) + 1) % order.length];
+    updateForecast(fc.id, { status: next });
+    flash(`상태 → ${next}`);
+    refreshAll();
+  });
+  document.getElementById('dos-delete').addEventListener('click', () => {
+    if (confirm(`정말 삭제하시겠습니까?\n\n${fc.headline}\n${fc.id}`)) {
+      deleteForecast(fc.id);
+      selectedId = null;
+      refreshAll();
+      // Update inbox count
+      document.querySelectorAll('.sb-nav a[data-route="inbox"] .badge').forEach(b => b.textContent = FORECASTS.length);
+    }
+  });
+}
+
+function openEditModal(fc) {
+  const m = document.createElement('div');
+  m.className = 'edit-modal';
+  m.innerHTML = `
+    <div class="em-backdrop"></div>
+    <div class="em-card">
+      <div class="em-head">
+        <h3>전망 편집 <em>· ${fc.id}</em></h3>
+        <button class="em-close">×</button>
+      </div>
+      <div class="em-body">
+        <div class="em-field">
+          <label>Headline</label>
+          <input type="text" id="em-headline" value="${(fc.headline || '').replace(/"/g, '&quot;')}">
+        </div>
+        <div class="em-field">
+          <label>Claim (단문)</label>
+          <input type="text" id="em-short" value="${(fc.claim_short || '').replace(/"/g, '&quot;')}">
+        </div>
+        <div class="em-field">
+          <label>Claim (전문)</label>
+          <textarea id="em-full" rows="3">${(fc.claim_full || '').replace(/"/g, '&quot;')}</textarea>
+        </div>
+        <div class="em-grid">
+          <div class="em-field">
+            <label>Source</label>
+            <select id="em-src">
+              ${Object.entries(SOURCES).map(([k, v]) => `<option value="${k}" ${k === fc.src ? 'selected' : ''}>${v.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="em-field">
+            <label>Status</label>
+            <select id="em-status">
+              <option value="pending"  ${fc.status === 'pending'  ? 'selected' : ''}>pending</option>
+              <option value="tracking" ${fc.status === 'tracking' ? 'selected' : ''}>tracking</option>
+              <option value="inline"   ${fc.status === 'inline'   ? 'selected' : ''}>inline</option>
+              <option value="off"      ${fc.status === 'off'      ? 'selected' : ''}>off</option>
+            </select>
+          </div>
+        </div>
+        <div class="em-grid">
+          <div class="em-field">
+            <label>Asserted (YYYY-MM-DD)</label>
+            <input type="text" id="em-asserted" value="${fc.asserted}">
+          </div>
+          <div class="em-field">
+            <label>Maturity Center (YYYY-MM-DD)</label>
+            <input type="text" id="em-maturity" value="${fc.maturity.center}">
+          </div>
+        </div>
+        <div class="em-grid">
+          <div class="em-field">
+            <label>Tags (콤마 구분 — MA, CM, FX, GR, PR, CE, PI)</label>
+            <input type="text" id="em-tags" value="${(fc.tags || []).join(', ')}">
+          </div>
+          <div class="em-field">
+            <label>Impact (1-5)</label>
+            <input type="text" id="em-impact" value="${fc.impact || 3}">
+          </div>
+        </div>
+      </div>
+      <div class="em-foot">
+        <button class="btn secondary em-cancel">취소</button>
+        <button class="btn primary em-save">저장</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(m);
+
+  const close = () => m.remove();
+  m.querySelector('.em-close').addEventListener('click', close);
+  m.querySelector('.em-cancel').addEventListener('click', close);
+  m.querySelector('.em-backdrop').addEventListener('click', close);
+
+  m.querySelector('.em-save').addEventListener('click', () => {
+    const matCenter = document.getElementById('em-maturity').value.trim();
+    const matDate = new Date(matCenter);
+    const startDate = new Date(matDate); startDate.setDate(startDate.getDate() - 15);
+    const endDate = new Date(matDate); endDate.setDate(endDate.getDate() + 15);
+    const tagsStr = document.getElementById('em-tags').value.trim();
+    const tags = tagsStr ? tagsStr.split(',').map(t => t.trim().toUpperCase()).filter(Boolean) : [];
+    const patch = {
+      headline:    document.getElementById('em-headline').value,
+      claim_short: document.getElementById('em-short').value,
+      claim_full:  document.getElementById('em-full').value,
+      src:         document.getElementById('em-src').value,
+      status:      document.getElementById('em-status').value,
+      asserted:    document.getElementById('em-asserted').value.trim(),
+      maturity: {
+        start:  startDate.toISOString().slice(0,10),
+        end:    endDate.toISOString().slice(0,10),
+        center: matCenter
+      },
+      tags,
+      impact: parseInt(document.getElementById('em-impact').value, 10) || 3
+    };
+    updateForecast(fc.id, patch);
+    flash('저장됨');
+    close();
+    refreshAll();
+  });
+}
+
+/* ===== FULL CALENDAR ===== */
+let calRendered = false;
+let calFilter = 'all';
+
+const LANE_LABELS = {
+  legend:   'Macro Legends',
+  sellside: 'Sell-side Research',
+  inhouse:  'In-house Desk',
+  korea:    'Korean Analysts'
+};
+const LANE_ORDER = ['legend', 'sellside', 'inhouse', 'korea'];
+
+function renderFullCalendar() {
+  const headRight = document.getElementById('gantt-head-right');
+  const body      = document.getElementById('gantt-body');
+  if (!headRight || !body) return;
+
+  const PX = PX_PER_DAY;  // 5.4 px per day
+  const totalDays = dayDiff(CAL_START, CAL_END);
+  const totalWidth = totalDays * PX;
+
+  /* ===== HEADER — month columns ===== */
+  let mhtml = '';
+  let cur = new Date(CAL_START); cur.setDate(1);
+  while (cur <= CAL_END) {
+    const next = new Date(cur); next.setMonth(next.getMonth() + 1);
+    const w = (dayDiff(CAL_START, next) - dayDiff(CAL_START, cur)) * PX;
+    const m = cur.getMonth() + 1;
+    const y = String(cur.getFullYear()).slice(2);
+    const isQ = (m === 1 || m === 4 || m === 7 || m === 10);
+    mhtml += `<div class="gh-month ${isQ ? 'q-mark' : ''}" style="width:${w}px">
+      <span>${y}.${String(m).padStart(2,'0')}</span>
+      <span class="gh-mo-num">${cur.toLocaleDateString('en-US',{month:'short'}).toUpperCase()}</span>
+    </div>`;
+    cur = next;
+  }
+  headRight.innerHTML = mhtml;
+  headRight.style.width = totalWidth + 'px';
+
+  /* ===== BODY — group by lane, one row per forecast ===== */
+  body.innerHTML = '';
+
+  // Group forecasts by lane
+  const byLane = { legend: [], sellside: [], inhouse: [], korea: [] };
+  FORECASTS.forEach(fc => {
+    const src = SOURCES[fc.src];
+    if (!src) return;
+    const lane = src.lane || 'inhouse';
+    if (!byLane[lane]) byLane[lane] = [];
+    byLane[lane].push(fc);
+  });
+
+  // Sort each lane by maturity center (earliest first)
+  Object.keys(byLane).forEach(k => {
+    byLane[k].sort((a, b) => new Date(a.maturity.center) - new Date(b.maturity.center));
+  });
+
+  LANE_ORDER.forEach(laneKey => {
+    const items = byLane[laneKey] || [];
+    if (calFilter !== 'all' && calFilter !== laneKey) return;
+    if (items.length === 0) return;
+
+    // Group header
+    const groupRow = document.createElement('div');
+    groupRow.className = 'gantt-group';
+    groupRow.innerHTML = `<span>${LANE_LABELS[laneKey]}</span><span class="gg-count">${items.length} forecast${items.length > 1 ? 's' : ''}</span>`;
+    body.appendChild(groupRow);
+
+    items.forEach(fc => {
+      const src = SOURCES[fc.src];
+      const days = daysToMaturity(fc);
+      const act = actionState(fc);
+      const tag = (fc.tags || [])[0] || '';
+
+      const xa = xPos(fc.asserted);
+      const xs = xPos(fc.maturity.start);
+      const xe = xPos(fc.maturity.end);
+      const xc = xPos(fc.maturity.center);
+
+      const row = document.createElement('div');
+      row.className = `gantt-row`;
+      row.dataset.fc = fc.id;
+
+      // status pill text
+      let stateLabel = act.label.toUpperCase();
+      if (fc.status === 'inline') stateLabel = 'VERIFIED';
+      else if (fc.status === 'off') stateLabel = 'OFF';
+
+      const stateCls = act.cls === 'act' ? 'act' :
+                       fc.status === 'inline' ? 'inline' :
+                       fc.status === 'off' ? 'off' : '';
+
+      const headlineText = fc.headline || fc.claim_short;
+
+      row.innerHTML = `
+        <div class="gantt-row-left">
+          <div class="gr-source">
+            <span class="gr-name">${src.name}</span>
+            <span class="gr-org">${src.org}</span>
+          </div>
+          <div class="gr-claim">
+            <span class="gr-headline">${headlineText}</span>
+            <span class="gr-meta">
+              ${tag ? `<span class="gr-tag">${tag}</span>` : ''}
+              <span class="gr-state ${stateCls}">${stateLabel}${days >= 0 && fc.status !== 'inline' && fc.status !== 'off' ? ` · ${days}D` : ''}</span>
+            </span>
+          </div>
+        </div>
+        <div class="gantt-row-right" style="width:${totalWidth}px">
+          <div class="gantt-bar s-${fc.status}" style="left:${xa}px; width:${xe - xa}px">
+            <div class="gb-line"></div>
+            <div class="gb-window" style="left:${xs - xa}px; width:${Math.max(xe - xs, 4)}px"></div>
+            <div class="gb-asserted" style="left:0px"></div>
+            <div class="gb-node" style="left:${xc - xa}px"></div>
+          </div>
+        </div>
+      `;
+      body.appendChild(row);
+
+      row.addEventListener('click', () => {
+        selectedId = fc.id;
+        navigate('inbox');
+      });
+    });
+  });
+
+  /* ===== Vertical grid lines + Today line ===== */
+  // Add grid lines spanning all rows — append after rows so they overlay
+  // Actually we want them inside each .gantt-row-right but easier: use a single overlay layer
+  // We'll add grid + today line to head-right as well for visual alignment
+  // Add to body via a positioned overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:sticky; top:0; left:380px; pointer-events:none; height:0; z-index:9;';
+  // Skip overlay approach — instead, draw lines inside each row-right via background-image
+
+  // Apply month grid as background-image to gantt-row-right
+  const monthSizes = [];
+  let g = new Date(CAL_START); g.setDate(1);
+  while (g <= CAL_END) {
+    const n = new Date(g); n.setMonth(n.getMonth() + 1);
+    monthSizes.push((dayDiff(CAL_START, n) - dayDiff(CAL_START, g)) * PX);
+    g = n;
+  }
+
+  // Build a repeating gradient based on monthSizes — more complex, instead add divs as grid lines
+  // Actually simpler: append grid line divs inside body that span using position:absolute with height matching scrollHeight
+  // We'll attach them after body fills
+  setTimeout(() => {
+    const bodyRect = body.getBoundingClientRect();
+    const totalH = body.scrollHeight;
+
+    // Create grid container
+    let gridLayer = body.querySelector('.gantt-grid-layer');
+    if (gridLayer) gridLayer.remove();
+    gridLayer = document.createElement('div');
+    gridLayer.className = 'gantt-grid-layer';
+    gridLayer.style.cssText = `position:absolute; left:380px; top:0; width:${totalWidth}px; height:${totalH}px; pointer-events:none; z-index:1;`;
+
+    // Grid lines per month boundary
+    let cumX = 0;
+    let g2 = new Date(CAL_START); g2.setDate(1);
+    let i = 0;
+    while (g2 <= CAL_END) {
+      const m = g2.getMonth() + 1;
+      const isQ = (m === 1 || m === 4 || m === 7 || m === 10);
+      const isYear = (m === 1);
+      const line = document.createElement('div');
+      line.className = `gantt-grid-line ${isYear ? 'year' : isQ ? 'q' : ''}`;
+      line.style.left = cumX + 'px';
+      gridLayer.appendChild(line);
+      const n = new Date(g2); n.setMonth(n.getMonth() + 1);
+      cumX += (dayDiff(CAL_START, n) - dayDiff(CAL_START, g2)) * PX;
+      g2 = n;
+      i++;
+    }
+
+    // Today line
+    const today = document.createElement('div');
+    today.className = 'gantt-today';
+    today.style.left = xPos(TODAY) + 'px';
+    gridLayer.appendChild(today);
+
+    body.style.position = 'relative';
+    body.insertBefore(gridLayer, body.firstChild);
+  }, 50);
+
+  calRendered = true;
+}
+
+function setupCalFilters() {
+  document.querySelectorAll('#cal-filters .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#cal-filters .chip').forEach(c => c.classList.remove('on'));
+      chip.classList.add('on');
+      calFilter = chip.dataset.cf;
+      renderFullCalendar();
+    });
+  });
+}
+
+/* ===== SCENARIOS ===== */
+function renderScenarios() {
+  const wrap = document.getElementById('master-chain-full');
+  const chainFcs = MASTER_CHAIN_IDS.map(id => FORECASTS.find(f => f.id === id)).filter(Boolean);
+
+  // Dynamic stats
+  const chainLenEl = document.getElementById('chain-len');
+  const chainPathEl = document.getElementById('chain-path');
+  const chainHorizonEl = document.getElementById('chain-horizon');
+  const chainCoherenceEl = document.getElementById('chain-coherence');
+  const chainCoherenceSubEl = document.getElementById('chain-coherence-sub');
+
+  if (chainLenEl) chainLenEl.innerHTML = `${chainFcs.length}<small>개 노드</small>`;
+  if (chainPathEl) {
+    if (chainFcs.length === 0) {
+      chainPathEl.textContent = '사슬 노드 없음 — 새 forecast를 master chain에 추가하세요';
+    } else {
+      const shortNames = chainFcs.map(f => {
+        const src = SOURCES[f.src];
+        const srcName = src ? src.name : '?';
+        const claim = (f.claim_short || f.headline || '').slice(0, 12);
+        return `${srcName} ${claim}`;
+      });
+      chainPathEl.textContent = shortNames.join(' → ');
+    }
+  }
+  if (chainHorizonEl) {
+    if (chainFcs.length === 0) {
+      chainHorizonEl.innerHTML = `0<small>개월</small>`;
+    } else {
+      const earliest = chainFcs.reduce((a, b) => new Date(a.asserted) < new Date(b.asserted) ? a : b);
+      const latest   = chainFcs.reduce((a, b) => new Date(a.maturity.end) > new Date(b.maturity.end) ? a : b);
+      const months   = Math.max(1, Math.round(dayDiff(new Date(earliest.asserted), new Date(latest.maturity.end)) / 30));
+      chainHorizonEl.innerHTML = `${months}<small>개월</small>`;
+    }
+  }
+  if (chainCoherenceEl) {
+    if (chainFcs.length === 0) {
+      chainCoherenceEl.innerHTML = `—<small></small>`;
+      if (chainCoherenceSubEl) chainCoherenceSubEl.textContent = '사슬 노드 없음';
+    } else {
+      const scoreMap = { inline: 1.0, tracking: 0.7, pending: 0.5, off: 0.0 };
+      const scores = chainFcs.map(f => scoreMap[f.status] ?? 0.5);
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      const pct = Math.round(avg * 100);
+      chainCoherenceEl.innerHTML = `${pct}<small>%</small>`;
+      chainCoherenceEl.className = 'v' + (pct >= 90 ? ' green' : pct >= 60 ? '' : ' red');
+      if (chainCoherenceSubEl) {
+        chainCoherenceSubEl.textContent = pct >= 90 ? '모든 노드 in-line 또는 tracking 상태. 사슬 미파괴.'
+                                       : pct >= 60 ? '대부분 정상이나 일부 노드 약화. 점검 필요.'
+                                       : '사슬 파괴 — 즉시 재진단 권고.';
+      }
+    }
+  }
+
+  let html = '';
+  chainFcs.forEach((fc, i) => {
+    const src = SOURCES[fc.src];
+    const days = daysToMaturity(fc);
+    const tag = (fc.tags || [])[0];
+    const tagHue = tag ? EVENTOLOGY[tag].hue : 215;
+
+    let daysLabel, daysClass = '';
+    if (fc.status === 'inline')      { daysLabel = 'VERIFIED ✓'; daysClass = 'verified'; }
+    else if (fc.status === 'off')    { daysLabel = 'OFF';        daysClass = 'off'; }
+    else if (days < 0)               { daysLabel = `${Math.abs(days)}D AGO`; daysClass = 'verified'; }
+    else if (days <= 60)             { daysLabel = `${days}D · ACT`; daysClass = 'imminent'; }
+    else                             { daysLabel = `${days}D`; }
+
+    html += `
+      <div class="mc-node-full s-${fc.status}" data-fc="${fc.id}">
+        <div class="cn-top">
+          <span class="cn-src">${src.name}</span>
+          ${tag ? `<span class="cn-tag" style="--ev-h:${tagHue}">${tag}</span>` : ''}
+        </div>
+        <div class="cn-claim" style="-webkit-line-clamp:3; line-clamp:3;">${fc.claim_short}</div>
+        <div class="cn-foot">
+          <span class="cn-stat">${fc.status}</span>
+          <span class="cn-days ${daysClass}">${daysLabel}</span>
+        </div>
+      </div>`;
+    if (i < chainFcs.length - 1) html += `<div class="chain-arrow"></div>`;
+  });
+  wrap.innerHTML = html;
+
+  // secondary linkages
+  const links = [
+    { from: 'FC-2026-CITI',  to: 'FC-2026-005930' },
+    { from: 'FC-2026-FED75', to: 'FC-2026-MS-KR' },
+    { from: 'FC-2026-USD',   to: 'FC-2026-BOK' },
+    { from: 'FC-2026-0502-A',to: 'FC-2028-RECN' }
+  ];
+
+  const linksHtml = links.map(L => {
+    const fcA = FORECASTS.find(f => f.id === L.from);
+    const fcB = FORECASTS.find(f => f.id === L.to);
+    if (!fcA || !fcB) return '';
+    return `
+      <div class="link-row">
+        <div class="link-card">
+          <div class="src">${SOURCES[fcA.src].name}</div>
+          <div class="claim">${fcA.claim_short}</div>
+        </div>
+        <div class="link-arrow">→</div>
+        <div class="link-card">
+          <div class="src">${SOURCES[fcB.src].name}</div>
+          <div class="claim">${fcB.claim_short}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('other-links').innerHTML = linksHtml;
+}
+
+/* ===== HISTORY ===== */
+/* ===== HISTORY ===== */
+let histSelectMode = false;
+let histSelected = new Set();
+let histFilter = 'all';
+let histTsKey = h => h.ts;  // unique key by timestamp
+
+function renderHistory() {
+  const totalCount = HISTORY_LOG.length;
+  const urlCount    = HISTORY_LOG.filter(h => h.method === 'url').length;
+  const uploadCount = HISTORY_LOG.filter(h => h.method === 'upload').length;
+  const manualCount = HISTORY_LOG.filter(h => h.method === 'manual').length;
+
+  // Update chip counts
+  document.querySelectorAll('#hist-filters .chip').forEach(chip => {
+    const f = chip.dataset.hf;
+    if (f === 'all')          chip.textContent = `All · ${totalCount}`;
+    else if (f === 'url')     chip.textContent = `URL · ${urlCount}`;
+    else if (f === 'upload')  chip.textContent = `Upload · ${uploadCount}`;
+    else if (f === 'manual')  chip.textContent = `Manual · ${manualCount}`;
+  });
+
+  let entries = HISTORY_LOG.slice();
+  if (histFilter !== 'all') entries = entries.filter(h => h.method === histFilter);
+
+  const byDay = {};
+  entries.forEach(h => {
+    const day = h.ts.slice(0, 10);
+    if (!byDay[day]) byDay[day] = [];
+    byDay[day].push(h);
+  });
+
+  const days = Object.keys(byDay).sort().reverse();
+  const dowKr = ['일','월','화','수','목','금','토'];
+
+  if (days.length === 0) {
+    document.getElementById('hist-content').innerHTML = `
+      <div style="padding:80px 40px; text-align:center; color:var(--ink-dim);">
+        <p style="font-family:var(--sans); font-size:16px; line-height:1.6;">
+          이 필터에 해당하는 인입 기록이 없습니다.<br>
+          <span style="color:var(--ink-mute); font-size:14px;">새 forecast를 추가하면 여기에 나타납니다.</span>
+        </p>
+      </div>`;
+    return;
+  }
+
+  const html = days.map(day => {
+    const dayEntries = byDay[day];
+    const d = new Date(day);
+    const dayLabel = `${d.getMonth()+1}월 ${d.getDate()}일`;
+    const dayDow = dowKr[d.getDay()];
+    const isToday = day === '2026-05-07';
+
+    const cards = dayEntries.map(h => {
+      const f = FORECASTS.find(x => x.id === h.fcId);
+      if (!f) return '';
+      const src = SOURCES[f.src];
+      if (!src) return '';
+      const time = h.ts.slice(11, 16);
+      const methodLabel = h.method === 'url' ? 'URL' : h.method === 'upload' ? 'FILE' : 'MANUAL';
+      const linkHtml = h.url ? `<span class="link">${h.url}</span>` : '';
+      const tsKey = histTsKey(h);
+      const isSelected = histSelected.has(tsKey);
+      const isSelectable = histSelectMode;
+      return `
+        <div class="hist-card ${isSelectable ? 'selectable' : ''} ${isSelected ? 'selected' : ''}" data-fc="${f.id}" data-ts="${tsKey}">
+          <div class="h-check"></div>
+          <div class="meta">
+            <span class="time">${time}</span>
+            <span class="method ${h.method}">${methodLabel}</span>
+            <span class="status ${f.status}">${f.status}</span>
+          </div>
+          <div class="claim">${f.claim_short || f.headline || '—'}</div>
+          <div class="foot">
+            <span class="src">${src.name}</span>
+            ${linkHtml}
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="hist-day-block">
+        <div class="hist-day-head">
+          <h3><b>${dayLabel}</b><span style="color:var(--ink-dim);font-size:16px;font-weight:500;margin-left:8px">${dayDow}요일${isToday ? ' · TODAY':''}</span></h3>
+          <div class="meta">${dayEntries.length}건 인입<b>${dayEntries.filter(e=>e.method==='url').length} URL</b><b>${dayEntries.filter(e=>e.method==='manual').length} Manual</b></div>
+        </div>
+        <div class="hist-cards">${cards}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('hist-content').innerHTML = html;
+
+  // Attach click handlers
+  document.querySelectorAll('#hist-content .hist-card').forEach(card => {
+    card.addEventListener('click', e => {
+      e.stopPropagation();
+      const tsKey = card.dataset.ts;
+      const fcId = card.dataset.fc;
+      if (histSelectMode) {
+        if (histSelected.has(tsKey)) histSelected.delete(tsKey);
+        else histSelected.add(tsKey);
+        renderHistory();
+        updateHistSelectionUI();
+      } else {
+        // Normal: open in inbox
+        if (fcId) {
+          selectedId = fcId;
+          navigate('inbox');
+        }
+      }
+    });
+  });
+}
+
+function updateHistSelectionUI() {
+  const count = histSelected.size;
+  const c = document.getElementById('hist-sel-count');
+  if (c) c.textContent = count;
+  const delBtn = document.getElementById('hist-delete');
+  if (delBtn) delBtn.style.opacity = count === 0 ? '0.4' : '1';
+}
+
+function setupHistoryActions() {
+  const filterChips = document.querySelectorAll('#hist-filters .chip');
+  filterChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      filterChips.forEach(c => c.classList.remove('on'));
+      chip.classList.add('on');
+      histFilter = chip.dataset.hf;
+      renderHistory();
+    });
+  });
+
+  const toggleBtn = document.getElementById('hist-select-toggle');
+  const allBtn    = document.getElementById('hist-select-all');
+  const clearBtn  = document.getElementById('hist-select-clear');
+  const delBtn    = document.getElementById('hist-delete');
+  const cancelBtn = document.getElementById('hist-cancel');
+
+  if (!toggleBtn) return;
+
+  function enterSelect() {
+    histSelectMode = true;
+    histSelected = new Set();
+    toggleBtn.style.display = 'none';
+    allBtn.style.display = '';
+    clearBtn.style.display = '';
+    delBtn.style.display = '';
+    cancelBtn.style.display = '';
+    renderHistory();
+    updateHistSelectionUI();
+  }
+
+  function exitSelect() {
+    histSelectMode = false;
+    histSelected = new Set();
+    toggleBtn.style.display = '';
+    allBtn.style.display = 'none';
+    clearBtn.style.display = 'none';
+    delBtn.style.display = 'none';
+    cancelBtn.style.display = 'none';
+    renderHistory();
+  }
+
+  toggleBtn.addEventListener('click', enterSelect);
+  cancelBtn.addEventListener('click', exitSelect);
+
+  allBtn.addEventListener('click', () => {
+    let entries = HISTORY_LOG.slice();
+    if (histFilter !== 'all') entries = entries.filter(h => h.method === histFilter);
+    histSelected = new Set(entries.map(histTsKey));
+    renderHistory();
+    updateHistSelectionUI();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    histSelected = new Set();
+    renderHistory();
+    updateHistSelectionUI();
+  });
+
+  delBtn.addEventListener('click', () => {
+    if (histSelected.size === 0) {
+      flash('삭제할 항목을 먼저 선택하세요');
+      return;
+    }
+
+    // 1. Collect selected history entries and their associated forecast IDs
+    const selectedEntries = HISTORY_LOG.filter(h => histSelected.has(histTsKey(h)));
+    const fcIdsToDelete = new Set(selectedEntries.map(h => h.fcId).filter(Boolean));
+    const fcCount = fcIdsToDelete.size;
+
+    // 2. Compute cascade impact for the confirmation dialog
+    const forecastsAffected = FORECASTS.filter(f => fcIdsToDelete.has(f.id));
+    const allHistoryAffected = HISTORY_LOG.filter(h => fcIdsToDelete.has(h.fcId)).length;
+    const chainNodesAffected = MASTER_CHAIN_IDS.filter(id => fcIdsToDelete.has(id)).length;
+    const positionsAffected = forecastsAffected.reduce((sum, f) => sum + (f.positions ? f.positions.length : 0), 0);
+
+    const message =
+`선택한 ${histSelected.size}건의 히스토리 항목과 연결된 forecast ${fcCount}건을 시스템 전체에서 제거합니다.
+
+영향 범위:
+· Forecast ${fcCount}건 (인박스에서 제거)
+· 같은 forecast의 모든 인입 기록 ${allHistoryAffected}건
+· 인과 사슬 노드 ${chainNodesAffected}개${chainNodesAffected > 0 ? ' (Master Chain 단축)' : ''}
+· 연결된 포지션 ${positionsAffected}건
+· 캘린더 · 시나리오 맵 · 검증 결과에서도 자동 제거
+
+이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`;
+
+    if (!confirm(message)) return;
+
+    // 3. Cascade delete — forecasts, history (ALL entries for these fcIds), today, chain
+    FORECASTS = APP_STATE.forecasts = FORECASTS.filter(f => !fcIdsToDelete.has(f.id));
+    HISTORY_LOG = APP_STATE.history = HISTORY_LOG.filter(h => !fcIdsToDelete.has(h.fcId));
+    TODAY_HISTORY = APP_STATE.today = TODAY_HISTORY.filter(h => !fcIdsToDelete.has(h.fcId));
+    MASTER_CHAIN_IDS = APP_STATE.chain_ids = MASTER_CHAIN_IDS.filter(id => !fcIdsToDelete.has(id));
+    Store.save(APP_STATE);
+
+    // 4. Clear active selection in inbox if it pointed to a deleted forecast
+    if (selectedId && fcIdsToDelete.has(selectedId)) {
+      selectedId = null;
+    }
+
+    flash(`forecast ${fcCount}건 + 히스토리 ${allHistoryAffected}건 시스템 전체 제거`);
+    histSelected = new Set();
+    updateSidebarBadges();
+
+    // 5. Force re-render of all caches
+    calRendered = false;
+
+    renderHistory();
+    updateHistSelectionUI();
+  });
+}
+
+/* ===== SOURCES ===== */
+function renderSources() {
+  const sorted = Object.entries(SOURCES).map(([k, v]) => ({ key: k, ...v }))
+    .sort((a, b) => b.tr_comp - a.tr_comp);
+
+  const html = sorted.map((s, i) => `
+    <div class="src-card ${i === 0 ? 'top' : ''}">
+      <div class="info">
+        <div class="nm">
+          <h3>${s.name}</h3>
+          <em>${s.org}</em>
+          <span class="n">N<b>${s.n}</b></span>
+        </div>
+        <div class="tr-bars">
+          <div class="tr-bar-row">
+            <span class="lbl">방향</span>
+            <div class="bar"><i style="width:${s.tr_dir*100}%"></i></div>
+            <span class="pct">${(s.tr_dir*100).toFixed(0)}%</span>
+          </div>
+          <div class="tr-bar-row">
+            <span class="lbl">타이밍</span>
+            <div class="bar tim"><i style="width:${s.tr_tim*100}%"></i></div>
+            <span class="pct">${(s.tr_tim*100).toFixed(0)}%</span>
+          </div>
+        </div>
+      </div>
+      <div class="composite">
+        <div class="l">Score</div>
+        <div class="v">${(s.tr_comp*100).toFixed(0)}<small>/100</small></div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('src-grid').innerHTML = html;
+}
+
+/* ===== VERIFICATION ===== */
+let verifFilter = 'in';
+function renderVerification() {
+  const inN = 17, partN = 8, offN = 4, total = inN + partN + offN;
+  document.getElementById('verif-summary').innerHTML = `
+    <div class="verif-stat in ${verifFilter==='in'?'on':''}" data-vf="in">
+      <div class="l">In-line · 검증 일치</div>
+      <div class="v">${inN}<small> / ${total}</small></div>
+      <div class="sub">방향·타이밍·강도 모두 충족. 출처 점수 +1, 사슬 강화. 적중률 <b>${(inN/total*100).toFixed(0)}%</b>.</div>
+    </div>
+    <div class="verif-stat partial ${verifFilter==='partial'?'on':''}" data-vf="partial">
+      <div class="l">Partial · 부분 일치</div>
+      <div class="v">${partN}<small> / ${total}</small></div>
+      <div class="sub">방향은 맞고 타이밍/강도가 어긋남. 학습 자산. 출처 점수 변경 없음.</div>
+    </div>
+    <div class="verif-stat off ${verifFilter==='off'?'on':''}" data-vf="off">
+      <div class="l">Off-target · 빗나감</div>
+      <div class="v">${offN}<small> / ${total}</small></div>
+      <div class="sub">방향이 빗나감. 출처 점수 −1, downstream 사슬 conviction 자동 하향.</div>
+    </div>`;
+
+  const titleMap = { in: 'In-line · 검증 일치', partial: 'Partial · 부분 일치', off: 'Off-target · 빗나감' };
+  const titleNum = { in: 17, partial: 8, off: 4 };
+  document.getElementById('verif-section-title').innerHTML = `${titleMap[verifFilter]} <em>${titleNum[verifFilter]}건</em>`;
+
+  const filtered = VERIF_RESULTS.filter(r => r.verdict === verifFilter);
+  const verdictMap = { in: 'IN-LINE', partial: 'PARTIAL', off: 'OFF-TARGET' };
+  const html = filtered.map(r => {
+    const src = SOURCES[r.src];
+    return `
+      <div class="verif-item ${r.verdict}">
+        <div class="body">
+          <div class="head">
+            <h4>${r.headline}</h4>
+            <span class="verdict ${r.verdict}">${verdictMap[r.verdict]}</span>
+          </div>
+          <div class="src">${src.name} · ${src.org}</div>
+          <div style="font-size:14px;color:var(--ink-soft);font-weight:500">${r.summary}</div>
+          <div class="lesson">${r.lesson}</div>
+        </div>
+        <div class="impact">
+          <div class="l">P&L Impact</div>
+          <div class="v">${r.impact}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('verif-list').innerHTML = html;
+
+  document.querySelectorAll('.verif-stat').forEach(el => {
+    el.addEventListener('click', () => {
+      verifFilter = el.dataset.vf;
+      renderVerification();
+    });
+  });
+}
+
+/* ===== POSITIONS ===== */
+function renderPositions() {
+  const html = `
+    <thead>
+      <tr>
+        <th>Ticker</th><th>Direction</th><th>Linked Forecast</th><th style="text-align:right">Size</th><th style="text-align:right">P&L</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${POSITIONS_FULL.map(p => `
+        <tr>
+          <td class="ticker">${p.tk}</td>
+          <td class="dir ${p.dir}">${p.dir}</td>
+          <td class="linked"><b>${p.fc}</b>${p.linked}</td>
+          <td class="size">${p.size}</td>
+          <td class="pnl ${p.pnl >= 0 ? 'up' : 'down'}">${p.pnl >= 0 ? '+' : ''}${p.pnl.toFixed(2)}%</td>
+        </tr>`).join('')}
+    </tbody>`;
+  document.getElementById('pos-table').innerHTML = html;
+}
+
+/* ===== NOTIFICATIONS ===== */
+function renderNotifications() {
+  const html = NOTIFICATIONS.map(n => `
+    <div class="notif ${n.unread ? 'unread' : ''}">
+      <div class="dot"></div>
+      <div class="body">
+        <div class="meta">${n.meta}</div>
+        <div class="msg">${n.msg}</div>
+      </div>
+      <div class="ago">${n.ago}</div>
+    </div>`).join('');
+  document.getElementById('notif-list').innerHTML = html;
+}
+
+/* ===== INTAKE INTERACTIONS ===== */
+/* ===== INTAKE — wires URL/Upload/Manual into persistent forecasts ===== */
+let pendingDraft = null;  // { fc: {...}, history: {...} } prepared for Confirm
+
+function setupIntake() {
+  document.querySelectorAll('.ib-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.ib-tab').forEach(t => t.classList.remove('on'));
+      tab.classList.add('on');
+      document.querySelectorAll('.ib-pane').forEach(p => p.classList.remove('on'));
+      document.querySelector(`.ib-pane[data-pane="${tab.dataset.mode}"]`).classList.add('on');
+    });
+  });
+
+  const extractBtn = document.getElementById('extract-btn');
+  const urlInput   = document.getElementById('url-input');
+  const preview    = document.getElementById('extract-preview');
+
+  function showPreview(draft) {
+    pendingDraft = draft;
+    document.getElementById('ep-source').innerHTML   = draft.previewSource;
+    document.getElementById('ep-asserted').textContent = draft.fc.asserted.replace(/-/g, '.');
+    document.getElementById('ep-maturity').textContent = draft.fc.maturity.center.replace(/-/g, '.');
+    document.getElementById('ep-tags').innerHTML       = draft.previewTags;
+    document.getElementById('ep-claim').textContent    = draft.fc.claim_full || draft.fc.claim_short;
+    preview.classList.add('open');
+  }
+
+  extractBtn.addEventListener('click', () => {
+    if (!urlInput.value.trim()) {
+      urlInput.value = 'https://www.bloomberg.com/news/articles/2026-05-07/china-q3-stimulus';
+    }
+    const url = urlInput.value.trim();
+    extractBtn.textContent = 'Extracting…';
+    setTimeout(() => {
+      const draft = {
+        previewSource: '<em style="font-style:italic">Bloomberg</em> · Markets',
+        previewTags:
+          '<span style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.18em;padding:3px 8px;border:1px solid #d4a456;color:#7a6028;background:#fdf6e8;margin-right:6px">PR · 정책</span>' +
+          '<span style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.18em;padding:3px 8px;border:1px solid #8aae6f;color:#3e5a30;background:#f1f6ec">GR · 성장</span>',
+        fc: {
+          src: 'inhouse',
+          asserted: '2026-05-07',
+          maturity: { start: '2026-09-01', end: '2026-09-30', center: '2026-09-30' },
+          headline: 'Bloomberg · 중국 Q3 부양',
+          claim_short: '중국 정부 3분기 대규모 경기부양 패키지 발표',
+          claim_full: '"중국 정부가 3분기에 대규모 경기부양 패키지 발표 — 부동산, 인프라, 가전 보조금 결합"',
+          impact: 4,
+          status: 'tracking',
+          tags: ['PR', 'GR']
+        },
+        history: { ts: '2026-05-07T' + new Date().toTimeString().slice(0,5), method: 'url', url }
+      };
+      showPreview(draft);
+      extractBtn.textContent = 'Extract';
+    }, 700);
+  });
+
+  document.getElementById('ep-discard').addEventListener('click', () => {
+    preview.classList.remove('open');
+    urlInput.value = '';
+    pendingDraft = null;
+  });
+
+  document.getElementById('ep-confirm').addEventListener('click', () => {
+    if (pendingDraft) {
+      addForecast(pendingDraft.fc, pendingDraft.history);
+      refreshAll();
+    }
+    preview.classList.remove('open');
+    urlInput.value = '';
+    pendingDraft = null;
+    // Update inbox count badge
+    document.querySelectorAll('.sb-nav a[data-route="inbox"] .badge').forEach(b => b.textContent = FORECASTS.length);
+  });
+
+  /* ===== FILE UPLOAD ===== */
+  const fileInput   = document.getElementById('file-input');
+  const dropZone    = document.getElementById('drop-zone');
+  const uploadPrev  = document.getElementById('upload-preview');
+  const upThumb     = document.getElementById('upload-thumb');
+  const upName      = document.getElementById('up-name');
+  const upMeta      = document.getElementById('up-meta');
+  const upClear     = document.getElementById('up-clear');
+  const processBtn  = document.getElementById('process-btn');
+  let pendingFile = null;
+
+  const formatBytes = b => b < 1024 ? `${b}B` : b < 1048576 ? `${(b/1024).toFixed(1)}KB` : `${(b/1048576).toFixed(1)}MB`;
+
+  function showFile(file) {
+    pendingFile = file;
+    const ext = (file.name.split('.').pop() || '').toUpperCase();
+    upName.textContent = file.name;
+    upMeta.textContent = `${ext} · ${formatBytes(file.size)}`;
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = e => { upThumb.src = e.target.result; upThumb.style.display = 'block'; };
+      reader.readAsDataURL(file);
+    } else {
+      upThumb.src = '';
+      upThumb.style.display = 'none';
+    }
+    dropZone.style.display = 'none';
+    uploadPrev.style.display = 'flex';
+  }
+
+  function clearFile() {
+    pendingFile = null;
+    fileInput.value = '';
+    upThumb.src = '';
+    dropZone.style.display = 'block';
+    uploadPrev.style.display = 'none';
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => {
+    if (e.target.files && e.target.files[0]) showFile(e.target.files[0]);
+  });
+
+  ['dragover','dragenter'].forEach(ev => dropZone.addEventListener(ev, e => {
+    e.preventDefault(); dropZone.classList.add('dragging');
+  }));
+  ['dragleave','dragend','drop'].forEach(ev => dropZone.addEventListener(ev, e => {
+    e.preventDefault(); dropZone.classList.remove('dragging');
+  }));
+  dropZone.addEventListener('drop', e => {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) showFile(e.dataTransfer.files[0]);
+  });
+
+  upClear.addEventListener('click', clearFile);
+
+  processBtn.addEventListener('click', () => {
+    if (!pendingFile) {
+      flash('파일을 먼저 선택하세요');
+      return;
+    }
+    const isImage = pendingFile.type.startsWith('image/');
+    const fileName = pendingFile.name;
+    const ext = (fileName.split('.').pop() || '').toUpperCase();
+    processBtn.textContent = isImage ? 'OCR…' : 'Processing…';
+    setTimeout(() => {
+      const draft = {
+        previewSource: `<em style="font-style:italic">${fileName}</em> · ${ext} ${isImage ? 'image' : 'document'}`,
+        previewTags: isImage ?
+          '<span style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.18em;padding:3px 8px;border:1px solid #8aae6f;color:#3e5a30;background:#f1f6ec;margin-right:6px">GR · 성장</span>' +
+          '<span style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.18em;padding:3px 8px;border:1px solid #d4a456;color:#7a6028;background:#fdf6e8">CE · 기업실적</span>'
+          :
+          '<span style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.18em;padding:3px 8px;border:1px solid #5e7da9;color:#2e4d75;background:#eef3f9;margin-right:6px">MA · 통화정책</span>' +
+          '<span style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.18em;padding:3px 8px;border:1px solid #8aae6f;color:#3e5a30;background:#f1f6ec">GR · 성장</span>',
+        fc: {
+          src: 'inhouse',
+          asserted: '2026-05-07',
+          maturity: isImage
+            ? { start: '2026-10-01', end: '2026-10-31', center: '2026-10-31' }
+            : { start: '2026-09-01', end: '2026-09-30', center: '2026-09-15' },
+          headline: isImage ? `${fileName} · OCR 추출` : `${fileName} · 문서 추출`,
+          claim_short: isImage
+            ? '한국 반도체 업체 H2 capex 가이던스 컨센서스 대비 +18% 상회'
+            : 'Goldman Sachs Q3 — Fed 인하 사이클 본격 진입',
+          claim_full: isImage
+            ? '"이미지에서 추출 — 차트/스크린샷 OCR 결과: 한국 반도체 업체 H2 capex 가이던스 컨센서스 대비 +18% 상회 전망"'
+            : '"리서치 PDF에서 추출 — Goldman Sachs Q3 outlook: Fed 인하 사이클 본격 진입, 글로벌 듀레이션 long 추천"',
+          impact: 4,
+          status: 'tracking',
+          tags: isImage ? ['GR', 'CE'] : ['MA', 'GR']
+        },
+        history: { ts: '2026-05-07T' + new Date().toTimeString().slice(0,5), method: 'upload', filename: fileName }
+      };
+      showPreview(draft);
+      processBtn.textContent = 'Process';
+      clearFile();
+    }, isImage ? 1100 : 700);
+  });
+
+  /* ===== MANUAL ENTRY ===== */
+  const manualBtn = document.querySelector('.manual-pane .ib-btn');
+  if (manualBtn) {
+    manualBtn.addEventListener('click', () => {
+      const inputs = document.querySelectorAll('.manual-pane .mfield input');
+      const sourceTxt = inputs[0].value.trim();
+      const claimTxt  = inputs[1].value.trim();
+      const matTxt    = inputs[2].value.trim();
+      if (!sourceTxt || !claimTxt) {
+        flash('Source와 Claim은 필수입니다');
+        return;
+      }
+      // Parse maturity (YYYY.MM or YYYY.MM.DD)
+      let maturityCenter = '2026-09-30';
+      if (matTxt) {
+        const parts = matTxt.replace(/\./g, '-').split('-');
+        if (parts.length === 2) maturityCenter = `${parts[0]}-${parts[1].padStart(2,'0')}-15`;
+        else if (parts.length === 3) maturityCenter = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+      }
+      // Find source key — match by name or default to inhouse
+      let srcKey = 'inhouse';
+      const srcMatch = Object.entries(SOURCES).find(([k, v]) => v.name === sourceTxt);
+      if (srcMatch) {
+        srcKey = srcMatch[0];
+      } else {
+        // create new source on the fly
+        srcKey = sourceTxt.toLowerCase().replace(/[^a-z0-9가-힣]/g, '_').slice(0, 20);
+        if (!SOURCES[srcKey]) {
+          SOURCES[srcKey] = { name: sourceTxt, org: 'User-added', lane: 'inhouse', tr_dir: 0.50, tr_tim: 0.50, n: 0, tr_comp: 0.50 };
+        }
+      }
+      const matDate = new Date(maturityCenter);
+      const startDate = new Date(matDate); startDate.setDate(startDate.getDate() - 15);
+      const endDate = new Date(matDate); endDate.setDate(endDate.getDate() + 15);
+
+      const draft = {
+        previewSource: `<em style="font-style:italic">${sourceTxt}</em> · Manual entry`,
+        previewTags: '<span style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.18em;padding:3px 8px;border:1px solid var(--rule-hi);color:var(--ink-soft);background:var(--bg-tint)">UNTAGGED · 추후 분류</span>',
+        fc: {
+          src: srcKey,
+          asserted: '2026-05-07',
+          maturity: {
+            start:  startDate.toISOString().slice(0,10),
+            end:    endDate.toISOString().slice(0,10),
+            center: maturityCenter
+          },
+          headline: claimTxt.length > 30 ? claimTxt.slice(0,30) + '…' : claimTxt,
+          claim_short: claimTxt,
+          claim_full: '"' + claimTxt + '"',
+          impact: 3,
+          status: 'pending',
+          tags: []
+        },
+        history: { ts: '2026-05-07T' + new Date().toTimeString().slice(0,5), method: 'manual' }
+      };
+      showPreview(draft);
+      // Clear inputs
+      inputs.forEach(i => i.value = '');
+    });
+  }
+}
+
+function flash(msg) {
+  const el = document.createElement('div');
+  el.className = 'flash-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+/* ===== ROUTING SETUP ===== */
+function setupRouting() {
+  // Sidebar nav links
+  document.querySelectorAll('[data-route]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      const route = el.dataset.route;
+      if (route) navigate(route);
+    });
+  });
+
+  // Inbox card click → already inside renderInbox
+  // Action card / chain node / today history click → go to inbox with selected fc
+  document.addEventListener('click', (e) => {
+    const fcEl = e.target.closest('[data-fc]');
+    if (fcEl && fcEl.dataset.fc && !fcEl.classList.contains('fc-card')) {
+      // skip notifications/positions tables
+      if (fcEl.closest('.notif-list') || fcEl.closest('.pos-table-full')) return;
+      const fcId = fcEl.dataset.fc;
+      if (FORECASTS.find(f => f.id === fcId)) {
+        selectedId = fcId;
+        navigate('inbox');
+      }
+    }
+  });
+}
+
+function updateSidebarBadges() {
+  document.querySelectorAll('.sb-nav a[data-route="inbox"] .badge').forEach(b => b.textContent = FORECASTS.length);
+  document.querySelectorAll('.sb-nav a[data-route="history"] .badge').forEach(b => b.textContent = HISTORY_LOG.length);
+}
+
+function init() {
+  updateSidebarBadges();
+  renderActionCards();
+  renderMonthCalendar();
+  renderTodayHistory();
+  renderChain();
+  setupIntake();
+  setupRouting();
+  setupCalFilters();
+  setupHistoryActions();
+
+  // Inbox filter chips
+  document.querySelectorAll('#inbox-filters .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#inbox-filters .chip').forEach(c => c.classList.remove('on'));
+      chip.classList.add('on');
+      inboxFilter = chip.dataset.f;
+      renderInbox();
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>
