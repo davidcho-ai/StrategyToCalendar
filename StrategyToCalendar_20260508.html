@@ -348,6 +348,22 @@ html, body {
 .ac-src .org { color: var(--ink-mute); font-weight: 600; letter-spacing: 0.06em; font-size: 10px; }
 .ac-tag { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 9px; border: 1px solid hsla(var(--ev-h), 35%, 50%, 0.45); color: hsl(var(--ev-h), 50%, 26%); background: hsla(var(--ev-h), 50%, 50%, 0.07); white-space: nowrap; }
 
+.action-empty {
+  grid-column: 1 / -1;
+  padding: 64px 40px;
+  text-align: center;
+  background: var(--bg-tint);
+  border: 1px dashed var(--rule-hi);
+}
+.action-empty .ae-title {
+  font-family: var(--sans); font-size: 17px; font-weight: 700;
+  color: var(--ink); margin-bottom: 8px; letter-spacing: -0.01em;
+}
+.action-empty .ae-desc {
+  font-family: var(--sans); font-size: 14px; font-weight: 500;
+  color: var(--ink-dim); line-height: 1.55;
+}
+
 /* ===== TWO-COL ===== */
 .two-col { display: grid; grid-template-columns: 1fr 380px; gap: 30px; align-items: start; }
 .mini-cal { background: var(--bg-card); border: 1px solid var(--rule); padding: 26px 30px 30px; }
@@ -1283,7 +1299,7 @@ html, body {
       <div class="page" id="page-inbox">
         <div class="toolbar">
           <div class="chips" id="inbox-filters">
-            <span class="chip on" data-f="all">All · 13</span>
+            <span class="chip on" data-f="all">All</span>
             <span class="chip" data-f="tracking">Tracking</span>
             <span class="chip" data-f="pending">Pending</span>
             <span class="chip" data-f="inline">In-line</span>
@@ -1333,18 +1349,18 @@ html, body {
         <div class="scen-summary">
           <div class="item">
             <span class="l">Chain Length</span>
-            <span class="v">5<small>개 노드</small></span>
-            <span class="sub">조윤남 인플레 → JPM 원유 → GS Fed → BW USD → KOSPI</span>
+            <span class="v" id="chain-len">5<small>개 노드</small></span>
+            <span class="sub" id="chain-path">조윤남 인플레 → JPM 원유 → GS Fed → BW USD → KOSPI</span>
           </div>
           <div class="item">
             <span class="l">Horizon</span>
-            <span class="v">8<small>개월</small></span>
+            <span class="v" id="chain-horizon">8<small>개월</small></span>
             <span class="sub">사슬 첫 발화에서 마지막 만기까지의 검증 기간</span>
           </div>
           <div class="item">
             <span class="l">Coherence</span>
-            <span class="v green">100<small>%</small></span>
-            <span class="sub">모든 노드 in-line 또는 tracking 상태. 사슬 미파괴.</span>
+            <span class="v green" id="chain-coherence">100<small>%</small></span>
+            <span class="sub" id="chain-coherence-sub">모든 노드 in-line 또는 tracking 상태. 사슬 미파괴.</span>
           </div>
         </div>
 
@@ -2131,6 +2147,12 @@ function navigate(route) {
   document.querySelector('.page-body').scrollTop = 0;
 
   switch (route) {
+    case 'dashboard':
+      renderActionCards();
+      renderMonthCalendar();
+      renderTodayHistory();
+      renderChain();
+      break;
     case 'inbox':         renderInbox(); break;
     case 'calendar':      renderFullCalendar(); break;
     case 'scenarios':     renderScenarios(); break;
@@ -2209,7 +2231,16 @@ function renderActionCards() {
     .sort((a, b) => b.priority - a.priority)
     .slice(0, 3);
 
-  document.getElementById('action-grid').innerHTML = ranked.map(({ f, days, act }) => {
+  const grid = document.getElementById('action-grid');
+  if (ranked.length === 0) {
+    grid.innerHTML = `<div class="action-empty">
+      <div class="ae-title">우선순위 큐가 비어 있습니다</div>
+      <div class="ae-desc">상단 Capture 바를 통해 새 forecast를 추가하시면 만기 임박순으로 자동 정렬됩니다.</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = ranked.map(({ f, days, act }) => {
     const src = SOURCES[f.src];
     const tag = f.tags[0];
     const e = EVENTOLOGY[tag] || { hue: 215, name: '' };
@@ -2302,6 +2333,14 @@ function renderChain() {
   const flow = document.getElementById('chain-flow');
   const chainFcs = MASTER_CHAIN_IDS.map(id => FORECASTS.find(f => f.id === id)).filter(Boolean);
 
+  if (chainFcs.length === 0) {
+    flow.innerHTML = `<div class="action-empty" style="grid-column:1/-1">
+      <div class="ae-title">Master Thesis Chain이 비어 있습니다</div>
+      <div class="ae-desc">forecast를 추가한 뒤 시나리오 맵에서 인과 사슬을 구성하실 수 있습니다.</div>
+    </div>`;
+    return;
+  }
+
   let html = '';
   chainFcs.forEach((fc, i) => {
     const src = SOURCES[fc.src];
@@ -2339,6 +2378,27 @@ let selectedId = null;
 
 function renderInbox() {
   const list = document.getElementById('inbox-list');
+
+  // Update filter chip counts dynamically
+  const counts = {
+    all:      FORECASTS.length,
+    tracking: FORECASTS.filter(f => f.status === 'tracking').length,
+    pending:  FORECASTS.filter(f => f.status === 'pending').length,
+    inline:   FORECASTS.filter(f => f.status === 'inline').length,
+    off:      FORECASTS.filter(f => f.status === 'off').length
+  };
+  document.querySelectorAll('#inbox-filters .chip').forEach(chip => {
+    const f = chip.dataset.f;
+    const labelMap = { all: 'All', tracking: 'Tracking', pending: 'Pending', inline: 'In-line', off: 'Off' };
+    if (counts[f] !== undefined) chip.textContent = `${labelMap[f]} · ${counts[f]}`;
+  });
+
+  // Update subtitle if currently on inbox page
+  const subtitleEl = document.getElementById('page-sub');
+  if (subtitleEl && document.getElementById('page-inbox').classList.contains('active')) {
+    subtitleEl.textContent = `${FORECASTS.length}개 forecast · 만기 임박순 정렬`;
+  }
+
   let items = FORECASTS.slice();
   if (inboxFilter !== 'all') items = items.filter(f => f.status === inboxFilter);
   items.sort((a, b) => Math.abs(daysToMaturity(a)) - Math.abs(daysToMaturity(b)));
@@ -2835,6 +2895,56 @@ function renderScenarios() {
   const wrap = document.getElementById('master-chain-full');
   const chainFcs = MASTER_CHAIN_IDS.map(id => FORECASTS.find(f => f.id === id)).filter(Boolean);
 
+  // Dynamic stats
+  const chainLenEl = document.getElementById('chain-len');
+  const chainPathEl = document.getElementById('chain-path');
+  const chainHorizonEl = document.getElementById('chain-horizon');
+  const chainCoherenceEl = document.getElementById('chain-coherence');
+  const chainCoherenceSubEl = document.getElementById('chain-coherence-sub');
+
+  if (chainLenEl) chainLenEl.innerHTML = `${chainFcs.length}<small>개 노드</small>`;
+  if (chainPathEl) {
+    if (chainFcs.length === 0) {
+      chainPathEl.textContent = '사슬 노드 없음 — 새 forecast를 master chain에 추가하세요';
+    } else {
+      const shortNames = chainFcs.map(f => {
+        const src = SOURCES[f.src];
+        const srcName = src ? src.name : '?';
+        const claim = (f.claim_short || f.headline || '').slice(0, 12);
+        return `${srcName} ${claim}`;
+      });
+      chainPathEl.textContent = shortNames.join(' → ');
+    }
+  }
+  if (chainHorizonEl) {
+    if (chainFcs.length === 0) {
+      chainHorizonEl.innerHTML = `0<small>개월</small>`;
+    } else {
+      const earliest = chainFcs.reduce((a, b) => new Date(a.asserted) < new Date(b.asserted) ? a : b);
+      const latest   = chainFcs.reduce((a, b) => new Date(a.maturity.end) > new Date(b.maturity.end) ? a : b);
+      const months   = Math.max(1, Math.round(dayDiff(new Date(earliest.asserted), new Date(latest.maturity.end)) / 30));
+      chainHorizonEl.innerHTML = `${months}<small>개월</small>`;
+    }
+  }
+  if (chainCoherenceEl) {
+    if (chainFcs.length === 0) {
+      chainCoherenceEl.innerHTML = `—<small></small>`;
+      if (chainCoherenceSubEl) chainCoherenceSubEl.textContent = '사슬 노드 없음';
+    } else {
+      const scoreMap = { inline: 1.0, tracking: 0.7, pending: 0.5, off: 0.0 };
+      const scores = chainFcs.map(f => scoreMap[f.status] ?? 0.5);
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      const pct = Math.round(avg * 100);
+      chainCoherenceEl.innerHTML = `${pct}<small>%</small>`;
+      chainCoherenceEl.className = 'v' + (pct >= 90 ? ' green' : pct >= 60 ? '' : ' red');
+      if (chainCoherenceSubEl) {
+        chainCoherenceSubEl.textContent = pct >= 90 ? '모든 노드 in-line 또는 tracking 상태. 사슬 미파괴.'
+                                       : pct >= 60 ? '대부분 정상이나 일부 노드 약화. 점검 필요.'
+                                       : '사슬 파괴 — 즉시 재진단 권고.';
+      }
+    }
+  }
+
   let html = '';
   chainFcs.forEach((fc, i) => {
     const src = SOURCES[fc.src];
@@ -3080,19 +3190,51 @@ function setupHistoryActions() {
       flash('삭제할 항목을 먼저 선택하세요');
       return;
     }
-    const count = histSelected.size;
-    if (!confirm(`${count}건의 인입 기록을 삭제하시겠습니까?\n\n주의: 인입 기록만 삭제되며, forecast 자체는 인박스에 그대로 남습니다.`)) return;
 
-    HISTORY_LOG = APP_STATE.history = HISTORY_LOG.filter(h => !histSelected.has(histTsKey(h)));
-    TODAY_HISTORY = APP_STATE.today = TODAY_HISTORY.filter(h => {
-      // Find the matching log entry; if today's quick history, also remove if its ts matches
-      const matches = HISTORY_LOG.find(x => x.ts.slice(11,16) === h.time && x.fcId === h.fcId);
-      return !!matches;
-    });
+    // 1. Collect selected history entries and their associated forecast IDs
+    const selectedEntries = HISTORY_LOG.filter(h => histSelected.has(histTsKey(h)));
+    const fcIdsToDelete = new Set(selectedEntries.map(h => h.fcId).filter(Boolean));
+    const fcCount = fcIdsToDelete.size;
+
+    // 2. Compute cascade impact for the confirmation dialog
+    const forecastsAffected = FORECASTS.filter(f => fcIdsToDelete.has(f.id));
+    const allHistoryAffected = HISTORY_LOG.filter(h => fcIdsToDelete.has(h.fcId)).length;
+    const chainNodesAffected = MASTER_CHAIN_IDS.filter(id => fcIdsToDelete.has(id)).length;
+    const positionsAffected = forecastsAffected.reduce((sum, f) => sum + (f.positions ? f.positions.length : 0), 0);
+
+    const message =
+`선택한 ${histSelected.size}건의 히스토리 항목과 연결된 forecast ${fcCount}건을 시스템 전체에서 제거합니다.
+
+영향 범위:
+· Forecast ${fcCount}건 (인박스에서 제거)
+· 같은 forecast의 모든 인입 기록 ${allHistoryAffected}건
+· 인과 사슬 노드 ${chainNodesAffected}개${chainNodesAffected > 0 ? ' (Master Chain 단축)' : ''}
+· 연결된 포지션 ${positionsAffected}건
+· 캘린더 · 시나리오 맵 · 검증 결과에서도 자동 제거
+
+이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`;
+
+    if (!confirm(message)) return;
+
+    // 3. Cascade delete — forecasts, history (ALL entries for these fcIds), today, chain
+    FORECASTS = APP_STATE.forecasts = FORECASTS.filter(f => !fcIdsToDelete.has(f.id));
+    HISTORY_LOG = APP_STATE.history = HISTORY_LOG.filter(h => !fcIdsToDelete.has(h.fcId));
+    TODAY_HISTORY = APP_STATE.today = TODAY_HISTORY.filter(h => !fcIdsToDelete.has(h.fcId));
+    MASTER_CHAIN_IDS = APP_STATE.chain_ids = MASTER_CHAIN_IDS.filter(id => !fcIdsToDelete.has(id));
     Store.save(APP_STATE);
-    flash(`${count}건 삭제됨`);
+
+    // 4. Clear active selection in inbox if it pointed to a deleted forecast
+    if (selectedId && fcIdsToDelete.has(selectedId)) {
+      selectedId = null;
+    }
+
+    flash(`forecast ${fcCount}건 + 히스토리 ${allHistoryAffected}건 시스템 전체 제거`);
     histSelected = new Set();
     updateSidebarBadges();
+
+    // 5. Force re-render of all caches
+    calRendered = false;
+
     renderHistory();
     updateHistSelectionUI();
   });
@@ -3511,6 +3653,16 @@ function init() {
   setupRouting();
   setupCalFilters();
   setupHistoryActions();
+
+  // Inbox filter chips
+  document.querySelectorAll('#inbox-filters .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#inbox-filters .chip').forEach(c => c.classList.remove('on'));
+      chip.classList.add('on');
+      inboxFilter = chip.dataset.f;
+      renderInbox();
+    });
+  });
 }
 document.addEventListener('DOMContentLoaded', init);
 
