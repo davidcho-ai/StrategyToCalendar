@@ -2935,9 +2935,6 @@ html, body {
     <div class="exec-subtitle" id="exec-subtitle">파이프라인 시작</div>
     <div class="exec-source" id="exec-source"></div>
     <div class="exec-stages" id="exec-stages"></div>
-    <div class="exec-note" id="exec-note">
-      ⓘ 현재는 frontend prototype 단계입니다. 실행 결과는 이력에 자동 저장되며, 백엔드(LLM API · 데이터 fetcher) 연결 후 § I — § VII 패널이 새 입력에 맞춰 갱신됩니다.
-    </div>
     <div class="exec-actions">
       <button class="exec-btn secondary" onclick="SIG.closeExecModal()" id="exec-close" disabled>닫기</button>
       <button class="exec-btn" onclick="SIG.viewHistory()" id="exec-view" disabled>이력 보기</button>
@@ -2957,32 +2954,15 @@ html, body {
     <h2>API <em>설정</em></h2>
     <div class="modal-sub">Claude API 직접 연결 — 로컬 저장</div>
 
-    <div class="help-section">
-      <strong>처음 사용하신다면:</strong>
-      <ol>
-        <li><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> 접속 → 계정 생성</li>
-        <li>좌측 메뉴 "API Keys" → "Create Key" 클릭</li>
-        <li>키 복사 (sk-ant-… 형식) → 아래 입력란에 붙여넣기</li>
-        <li>저장 후 dashboard 입력창에서 분석 실행</li>
-      </ol>
-    </div>
-
     <label for="api-key-input">Anthropic API Key</label>
     <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off" />
-    <div class="help-text">키는 본인 브라우저 localStorage에만 저장됩니다. 외부 서버로 전송되지 않으며, 다른 컴퓨터에서는 다시 입력해야 합니다.</div>
 
     <label for="model-select">모델 선택</label>
     <select id="model-select">
-      <option value="claude-opus-4-1-20250805">Claude Opus 4.1 (최고 품질, 약 $0.05/분석)</option>
-      <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5 (균형, 약 $0.015/분석)</option>
-      <option value="claude-3-5-haiku-20241022">Claude Haiku 3.5 (빠름·저렴, 약 $0.003/분석)</option>
+      <option value="claude-opus-4-1-20250805">Claude Opus 4.1 (최고 품질)</option>
+      <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5 (균형)</option>
+      <option value="claude-3-5-haiku-20241022">Claude Haiku 3.5 (빠름·저렴)</option>
     </select>
-    <div class="help-text">처음엔 Sonnet 4.6 권장. 결과가 부족하면 Opus 4.7로 업그레이드.</div>
-
-    <div class="cost-note">
-      <strong>비용 가이드:</strong> 분석 1회당 입력+출력 약 5,000-15,000 토큰.<br>
-      Sonnet 4.6 기준 분석 100회 = 약 $1.5. Anthropic 계정에서 사용량 모니터링 가능.
-    </div>
 
     <div class="settings-actions">
       <div class="left">
@@ -6208,7 +6188,6 @@ async function runExecution(payload) {
   const stagesEl = document.getElementById('exec-stages');
   const closeBtn = document.getElementById('exec-close');
   const viewBtn = document.getElementById('exec-view');
-  const noteEl = document.getElementById('exec-note');
 
   // 입력 미리보기
   let preview = '';
@@ -6240,7 +6219,6 @@ async function runExecution(payload) {
   subtitle.innerHTML = '<span class="spinner"></span>' + (hasApiKey ? '진짜 분석 진행 중' : '시뮬레이션 진행 중');
   closeBtn.disabled = true;
   viewBtn.disabled = true;
-  noteEl.style.display = hasApiKey ? 'none' : 'block';
 
   overlay.classList.add('active');
 
