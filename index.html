@@ -5542,6 +5542,12 @@ function setupIntake() {
     pasteBtn.addEventListener('click', () => {
       const text = pasteInput.value.trim();
       if (text.length < 20) { flash('분석할 텍스트를 20자 이상 붙여넣으세요'); return; }
+      // Signal 엔진 라우팅 — 진짜 Claude 분석 후 전 메뉴 자동 전파
+      if (typeof SIG !== 'undefined' && SIG.analyzeExternalText) {
+        pasteInput.value = '';
+        SIG.analyzeExternalText(text);
+        return;
+      }
       pasteBtn.textContent = 'Parsing…';
 
       setTimeout(() => {
@@ -6401,6 +6407,7 @@ async function runExecution(payload) {
     addEntry(payload);
     getNextRunNumber(); // 분석 번호 증가
     renderDashboard([result.key]);
+    try { registerToCalendar(true); } catch (e) { console.warn('auto-register:', e); }
     markDone(3, ((performance.now()-t3)/1000).toFixed(1) + 's');
 
     subtitle.innerHTML = '<span style="color: var(--bull); font-weight: 500;">✓ 분석 완료 · 대시보드 갱신됨</span>';
@@ -6408,6 +6415,7 @@ async function runExecution(payload) {
     viewBtn.disabled = false;
     execRunning = false;
     showToast(`${result.analysis.strategist.name} 분석이 적용되었습니다`);
+    setTimeout(() => { try { closeExecModal(); } catch (e) {} }, 1400);
   } catch (e) {
     // 어느 단계에서 실패했는지 찾기
     const activeStage = stagesEl.querySelector('.exec-stage.active');
@@ -6425,10 +6433,11 @@ function finishExecution(payload, analysisKey) {
   const closeBtn = document.getElementById('exec-close');
   const viewBtn = document.getElementById('exec-view');
 
-  subtitle.innerHTML = '<span style="color: var(--bull); font-weight: 500;">✓ 시뮬레이션 완료</span>';
+  subtitle.innerHTML = '<span style="color: var(--bull); font-weight: 500;">✓ 분석 완료</span>';
   closeBtn.disabled = false;
   viewBtn.disabled = false;
   execRunning = false;
+  setTimeout(() => { try { closeExecModal(); } catch (e) {} }, 1400);
 
   addEntry(payload);
 
@@ -6438,7 +6447,7 @@ function finishExecution(payload, analysisKey) {
     setTimeout(() => {
       getNextRunNumber(); // 분석 번호 증가
       renderDashboard([match.key]);
-      showToast(`${match.analysis.strategist.name} 분석이 적용되었습니다`);
+      try { registerToCalendar(true); } catch (e) { console.warn('auto-register:', e); }
     }, 400);
   } else {
     showToast(`이력 추가됨 — API 키 설정 후 진짜 분석 가능 (우상단 [설정])`);
@@ -7494,7 +7503,7 @@ function findOrCreateSource(strategist) {
   return key;
 }
 
-function registerToCalendar() {
+function registerToCalendar(auto) {
   if (!lastComposedAnalysis) {
     alert('먼저 분석을 실행하거나 이력에서 적용해 주세요.');
     return;
@@ -7504,6 +7513,12 @@ function registerToCalendar() {
   const primarySignal = (a.signal && (a.signal.short || a.signal.long)) || {};
   const maturity = parseHorizonToMaturity(primarySignal.horizon);
   const fcId = 'FC-SIG-' + Date.now().toString(36).toUpperCase();
+  const headline = (a.strategist.name || '') + ' — ' + ((a.themes && a.themes[0]) ? a.themes[0].theme : '시그널 분석');
+  // 중복 방지 — 같은 headline이 이미 등록되어 있으면 스킵
+  if (FORECASTS.some(f => f.headline === headline)) {
+    if (!auto) showToast('이미 캘린더에 등록된 분석입니다');
+    return;
+  }
 
   const criteria = (a.themes || []).slice(0, 3).map(t => ({
     txt: `${t.indicator || t.theme} — <b>${t.metric || ''}</b>`,
@@ -7534,7 +7549,7 @@ function registerToCalendar() {
     src: srcKey,
     asserted: new Date().toISOString().slice(0, 10),
     maturity: maturity,
-    headline: (a.strategist.name || '') + ' — ' + ((a.themes && a.themes[0]) ? a.themes[0].theme : '시그널 분석'),
+    headline: headline,
     claim_short: (shortLeg && shortLeg.target) ? (shortLeg.call + ': ' + shortLeg.target) : ((a.themes && a.themes[0]) ? a.themes[0].claim : ''),
     claim_full: '"' + (a.strategist.bio || '') + '"',
     impact: 4, status: 'tracking',
@@ -7548,6 +7563,7 @@ function registerToCalendar() {
   FORECASTS.unshift(forecast);
   const ts = new Date().toISOString().slice(0, 16);
   HISTORY_LOG.unshift({ ts: ts, method: 'paste', fcId: fcId, url: '' });
+  TODAY_HISTORY.unshift({ time: ts.slice(11, 16), method: 'paste', fcId: fcId });
   persist();
 
   // 사이드바 배지 갱신
@@ -7557,8 +7573,12 @@ function registerToCalendar() {
   if (histBadge) histBadge.textContent = HISTORY_LOG.length;
 
   if (typeof refreshAll === 'function') refreshAll();
-  showToast('캘린더에 Forecast 등록됨 — ' + forecast.headline.slice(0, 30));
-  setTimeout(() => { navigate('inbox'); }, 900);
+  if (auto) {
+    showToast('전 메뉴 자동 반영 — 인박스 · 캘린더 · 전망자 점수 · 대시보드');
+  } else {
+    showToast('캘린더에 Forecast 등록됨 — ' + forecast.headline.slice(0, 30));
+    setTimeout(() => { navigate('inbox'); }, 900);
+  }
 }
 
 
@@ -7595,6 +7615,14 @@ function onTrackRecordUpdate() {
 
 
 // ─── EXTERNAL INTAKE — 모선 인테이크 바에서 파일을 넘겨받아 진짜 분석 ───
+
+async function analyzeExternalText(text) {
+  navigate('signal');
+  const preview = text.slice(0, 80).replace(/\s+/g, ' ') + (text.length > 80 ? '…' : '');
+  runExecution({ source: preview, fullText: text, kind: 'text' });
+}
+
+
 async function analyzeExternalFile(file) {
   navigate('signal');
   const fileType = getFileType(file.name);
@@ -7628,7 +7656,7 @@ function onEnter() {
 return { switchTab, submitUrl, submitText, submitFiles, removeStaged,
   toggleSelection, selectAllHistory, clearSelection, applySelection,
   loadEntry, deleteEntry, openSettings, closeSettings, saveSettings,
-  clearApiKey, closeExecModal, viewHistory, registerToCalendar, onEnter, onTrackRecordUpdate, analyzeExternalFile };
+  clearApiKey, closeExecModal, viewHistory, registerToCalendar, onEnter, onTrackRecordUpdate, analyzeExternalFile, analyzeExternalText };
 })();
 
 </script>
