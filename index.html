@@ -2756,7 +2756,7 @@ html, body {
       <label class="file-drop" id="file-drop">
         <div class="drop-text">파일을 끌어다 놓거나 <em>클릭하여 선택</em>하세요</div>
         <div class="drop-hint">PDF · 이미지 · CSV · TXT · DOCX · XLSX · MP3/WAV · 최대 25MB</div>
-        <input type="file" id="file-input" multiple accept=".pdf,.txt,.csv,.tsv,.parquet,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.json,.html,.md" />
+        <input type="file" id="sig-file-input" multiple accept=".pdf,.txt,.csv,.tsv,.parquet,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.json,.html,.md" />
       </label>
       <div class="staged-files" id="staged-files"></div>
       <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
@@ -5651,6 +5651,14 @@ function setupIntake() {
       flash('파일을 먼저 선택하세요');
       return;
     }
+    // Signal 모듈의 진짜 Claude 분석 파이프라인으로 라우팅
+    if (typeof SIG !== 'undefined' && SIG.analyzeExternalFile) {
+      const _f = pendingFile;
+      clearFile();
+      processBtn.textContent = 'Process';
+      SIG.analyzeExternalFile(_f);
+      return;
+    }
     const isImage = pendingFile.type.startsWith('image/');
     const fileName = pendingFile.name;
     const ext = (fileName.split('.').pop() || '').toUpperCase();
@@ -6533,7 +6541,7 @@ function removeStaged(idx) {
   renderStagedFiles();
 }
 
-document.getElementById('file-input').addEventListener('change', (e) => {
+document.getElementById('sig-file-input').addEventListener('change', (e) => {
   addFiles(e.target.files);
   e.target.value = '';
 });
@@ -7585,6 +7593,32 @@ function onTrackRecordUpdate() {
 }
 
 
+
+// ─── EXTERNAL INTAKE — 모선 인테이크 바에서 파일을 넘겨받아 진짜 분석 ───
+async function analyzeExternalFile(file) {
+  navigate('signal');
+  const fileType = getFileType(file.name);
+  try {
+    let payload = { source: file.name, kind: 'file', fileSize: file.size, fileType: fileType };
+    if (fileType === 'PDF') {
+      payload.fileData = await fileToBase64(file);
+    } else if (fileType === 'IMG') {
+      payload.fileData = await fileToBase64(file);
+      const ext = file.name.split('.').pop().toLowerCase();
+      payload.mediaType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    } else if (['TXT', 'MD', 'JSON', 'HTML', 'CSV', 'TSV'].includes(fileType)) {
+      payload.fileText = await fileToText(file);
+    } else {
+      alert(fileType + ' 형식은 직접 분석이 어렵습니다. PDF · 이미지(PNG/JPG) · TXT를 사용하세요.');
+      return;
+    }
+    runExecution(payload);
+  } catch (e) {
+    alert('파일 처리 실패: ' + e.message);
+  }
+}
+
+
 function onEnter() {
   try { if (sigChart) { sigChart.resize(); sigChart.update('none'); } } catch (e) {}
   updateLiveTime();
@@ -7594,7 +7628,7 @@ function onEnter() {
 return { switchTab, submitUrl, submitText, submitFiles, removeStaged,
   toggleSelection, selectAllHistory, clearSelection, applySelection,
   loadEntry, deleteEntry, openSettings, closeSettings, saveSettings,
-  clearApiKey, closeExecModal, viewHistory, registerToCalendar, onEnter, onTrackRecordUpdate };
+  clearApiKey, closeExecModal, viewHistory, registerToCalendar, onEnter, onTrackRecordUpdate, analyzeExternalFile };
 })();
 
 </script>
